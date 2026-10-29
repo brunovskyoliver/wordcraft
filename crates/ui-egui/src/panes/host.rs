@@ -12,8 +12,23 @@ const HOST: &str = "task_panes";
 /// Whether a dialog, file browser, colors dialog, content-control popup, Zotero alert, keytips
 /// or egui popup is open: the keyboard belongs to it, not to the panes or the document.
 pub(crate) fn overlay_open(app: &WordApp, ctx: &egui::Context) -> bool {
-    app.dialog.is_some()
-        || app.file_dialog_open()
+    app.dialog.is_some() || other_overlay_open(app, ctx)
+}
+
+/// Find and Mark Index Entry stay open while the user returns to the document. Other
+/// dialogs own document input even before one of their widgets has claimed keyboard focus.
+pub(crate) fn document_input_blocked(app: &WordApp, ctx: &egui::Context) -> bool {
+    let modal = match &app.dialog {
+        Some(crate::dialogs::Dialog::Find { focus, .. }) => *focus,
+        Some(crate::dialogs::Dialog::Refs(dialog)) if matches!(dialog.as_ref(), crate::dialogs_refs::RefsDialog::MarkEntry(_)) => false,
+        None => false,
+        Some(_) => true,
+    };
+    modal || other_overlay_open(app, ctx)
+}
+
+fn other_overlay_open(app: &WordApp, ctx: &egui::Context) -> bool {
+    app.file_dialog_open()
         || app.colors.is_some()
         || app.controls.popup_open()
         || app.zotero.alert_open()

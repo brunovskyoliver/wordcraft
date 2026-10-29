@@ -1,0 +1,10 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "A small editing regression."}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "font"}}, "expect": {"result": {"dialog": "font"}}}
+{"method": "ui.text", "params": {"text": "LEAK"}}
+{"method": "engine.execute", "params": {"command": "document.text", "params": {}}, "expect": {"result": {"text": "A small editing regression."}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"result": {"text": "small"}}}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"method": "ui.inspect", "expect": {"result": {"dialog": null}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"result": {"text": "small"}}}

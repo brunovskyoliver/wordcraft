@@ -1,5 +1,7 @@
 # Zotero
 
+> Last reviewed: 2026-10-29 · Last updated: 2026-10-29 · Change: Linux pre-accept ownership verification.
+
 WordCraft works with the [Zotero](https://www.zotero.org) desktop app the way Word does: Zotero's
 own citation dialog, all of its citation styles, automatic bibliography and refresh. Nothing to
 install in Zotero; it only has to be running. The **Zotero** tab in the ribbon has the buttons:
@@ -65,8 +67,7 @@ Word's "Field" in the file.)
 
 Zotero's protocol has no handshake that proves the program on port 23116 is Zotero, and that
 program can read the citations and edit the open document. WordCraft limits who that can be.
-In short: **every system** gets the loopback rule; **only Linux** also checks that the listener
-isn't another user's. On Windows and macOS (and the BSDs) the loopback rule is the only check.
+Every system gets the loopback rule; Linux also checks whether the listener belongs to another user. On Windows and macOS (and the BSDs) the loopback rule is the only check.
 
 - Every system: it only connects to this computer (a loopback address such as `127.0.0.1`);
   any other address is refused before connecting.
@@ -78,6 +79,11 @@ isn't another user's. On Windows and macOS (and the BSDs) the loopback rule is t
   is unknown and only the loopback rule applies, as below. That holds only when the tables were
   read in full: a read error, or an open error other than "not found", **refuses**. Sandboxes
   that deny `/proc/net/tcp` (some AppArmor or Snap profiles, for example) are therefore refused.
+  Before the server accepts a connection, Linux may report its connected socket with uid and
+  inode zero. WordCraft verifies that placeholder through the matching listening socket owner
+  and address family. Missing or conflicting ownership is refused; a real connected socket
+  owner remains authoritative. This avoids rejecting a same-user connection merely because
+  the server has not called accept yet.
 - Windows, macOS and the BSDs: **no same-user check.** They have no such table to read
   without OS calls WordCraft doesn't make (it uses no `unsafe` code), so only the loopback rule
   applies there (and on Linux when the listener isn't in the table). Remaining risk: on a
@@ -95,3 +101,9 @@ isn't another user's. On Windows and macOS (and the BSDs) the loopback rule is t
 `client` runs a session, `Bridge` answers Zotero's `Document_*` / `Field_*` calls against the
 session. The app (`crates/ui-egui/src/zotero.rs`) runs the socket on a thread and answers on the
 UI thread.
+
+## Revision history
+
+| Date | Change | Verification |
+|---|---|---|
+| 2026-10-29 | Verify pending Linux peers through the matching listener; retain foreign/root owner refusal | Deterministic pre-accept socket test, missing/conflicting/dual-stack ownership cases, UI integration and full CI; UI-AUDIT-001 |

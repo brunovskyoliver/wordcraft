@@ -1,6 +1,58 @@
 use super::*;
 use wordcraft_engine::Session;
 
+/// UI-AUDIT-001: the way back to editing must remain visible in a compact Read Mode window.
+#[test]
+fn reading_toolbar_keeps_exit_visible_in_compact_windows() {
+    use egui_kittest::kittest::Queryable;
+    for width in [640.0, 800.0, 1440.0] {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Read this document.")), crate::Services::default());
+        app.run("view.readMode", json!({})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(width, 600.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        let exit_button = h.query_all_by_label("Edit Document").min_by(|a, b| a.rect().top().total_cmp(&b.rect().top())).unwrap();
+        let exit = exit_button.rect();
+        assert!(exit.left() >= 0.0 && exit.right() <= width, "exit outside {width}-point window: {exit:?}");
+        let nav = h.get_by_label("View").rect();
+        assert!(!exit.intersects(nav), "exit overlaps View at {width}: {exit:?} / {nav:?}");
+        exit_button.click();
+        h.run_steps(3);
+        assert!(!h.state().session.view.read_mode, "exit returns to editing at {width}");
+    }
+}
+
+#[test]
+fn reading_view_menu_applies_page_color_without_editing_the_document() {
+    use egui_kittest::kittest::Queryable;
+    let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Read this document.")), crate::Services::default());
+    app.run("view.readMode", json!({})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(vec2(640.0, 600.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(6);
+    h.get_by_label("View").click();
+    h.run_steps(3);
+    assert!(h.query_by_label("Navigation Pane").is_some());
+    h.get_by_label("Page color: None").click();
+    h.run_steps(3);
+    h.get_by_label("Inverse").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.view.read_page_color, wordcraft_engine::cmd::view::ReadPageColor::Inverse);
+    assert!(!h.state().session.dirty && !h.state().session.can_undo());
+}
+
 /// Two clicks arm and disarm the painter; the double-click handling then leaves it sticky (#2785).
 #[test]
 fn double_click_on_format_painter_makes_it_sticky() {

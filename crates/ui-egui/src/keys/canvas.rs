@@ -12,7 +12,7 @@ use super::{Key, Modifiers, WordApp, json};
 /// Events for the focused canvas: text, editing keys, clipboard, IME. While keytips are showing
 /// every key belongs to them (letters pick badges, Escape cancels), so nothing here runs.
 pub fn canvas_events(app: &mut WordApp, ctx: &egui::Context) {
-    if app.ui.keytips != crate::keytips::Phase::Off {
+    if crate::panes::document_input_blocked(app, ctx) {
         return;
     }
     let events = ctx.input(|i| i.events.clone());
@@ -53,8 +53,12 @@ pub fn canvas_events(app: &mut WordApp, ctx: &egui::Context) {
     for e in events {
         // A key closed the window (Mod+W) or brought another forward: the frame's other keys
         // were typed in this one and are dropped.
-        if app.windows.shown() != window {
+        if app.windows.shown() != window || crate::panes::document_input_blocked(app, ctx) {
             break;
+        }
+        // A modeless dialog still takes Escape; it must not collapse the document selection.
+        if app.dialog.is_some() && matches!(e, egui::Event::Key { key: Key::Escape, pressed: true, .. }) {
+            continue;
         }
         if stale_composition(app, &e, &mut batch) {
             continue;

@@ -1,0 +1,20 @@
+{"width": 800, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "goto"}}, "expect": {"result": {"dialog": "goto"}}}
+{"method": "ui.click", "params": {"x": 150, "y": 330}}
+{"method": "document.inspect"}
+{"method": "ui.key", "params": {"key": "Right", "shift": true}}
+{"method": "document.inspect", "expect": {"result": {"selection": {"text": "T"}}}}
+{"shot": "goto-page-final.png"}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"method": "ui.inspect", "expect": {"result": {"dialog": null, "dirty": false}}}
+{"method": "document.inspect", "expect": {"result": {"selection": {"text": "T"}}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "goto"}}, "expect": {"result": {"dialog": "goto"}}}
+{"method": "ui.click", "params": {"x": 270, "y": 298}}
+{"method": "ui.click", "params": {"x": 150, "y": 330}}
+{"method": "document.inspect"}
+{"method": "ui.key", "params": {"key": "Right", "shift": true}}
+{"method": "document.inspect", "expect": {"result": {"selection": {"text": "T"}}}}
+{"shot": "goto-bookmark-final.png"}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"method": "ui.inspect", "expect": {"result": {"dialog": null, "dirty": false}}}
+{"method": "document.inspect", "expect": {"result": {"selection": {"text": "T"}}}}

@@ -1,0 +1,16 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "A small editing regression."}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "format.bold", "params": {}}}
+{"method": "engine.execute", "params": {"command": "format.state", "params": {}}, "expect": {"result": {"bold": true}}}
+{"method": "engine.execute", "params": {"command": "edit.undo", "params": {}}}
+{"method": "engine.execute", "params": {"command": "format.state", "params": {}}, "expect": {"result": {"bold": false}}}
+{"method": "engine.execute", "params": {"command": "edit.redo", "params": {}}}
+{"method": "engine.execute", "params": {"command": "format.state", "params": {}}, "expect": {"result": {"bold": true}}}
+{"shot": "editing-bold-selection.png"}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "font"}}, "expect": {"result": {"dialog": "font"}}}
+{"shot": "editing-font-dialog.png"}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"method": "ui.inspect", "expect": {"result": {"dialog": null}}}
+{"method": "engine.execute", "params": {"command": "document.selection"}, "expect": {"result": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "format.state", "params": {}}, "expect": {"result": {"bold": true}}}

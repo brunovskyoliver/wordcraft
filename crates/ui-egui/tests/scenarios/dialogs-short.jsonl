@@ -1,0 +1,19 @@
+{"width": 1024, "height": 480, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "font"}}, "expect": {"result": {"dialog": "font"}}}
+{"shot": "dialog-font.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "paragraph"}}, "expect": {"result": {"dialog": "paragraph"}}}
+{"shot": "dialog-paragraph.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "pageSetup"}}, "expect": {"result": {"dialog": "pageSetup"}}}
+{"shot": "dialog-pageSetup.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "defineList"}}, "expect": {"result": {"dialog": "defineList"}}}
+{"shot": "dialog-defineList.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeRibbon"}}, "expect": {"result": {"dialog": "customizeRibbon"}}}
+{"shot": "dialog-customizeRibbon.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeKeyboard"}}, "expect": {"result": {"dialog": "customizeKeyboard"}}}
+{"shot": "dialog-customizeKeyboard.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog"}}

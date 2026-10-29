@@ -356,11 +356,12 @@ fn find_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     let current = FIND_TABS.iter().position(|(t, _)| t == tab).unwrap_or(0);
     if let Some((t, _)) = crate::widgets::dialog_tabs(ui, &names, current).and_then(|k| FIND_TABS.get(k)) {
         *tab = *t;
+        *focus = true;
         message.clear();
     }
     ui.add_space(6.0);
     if *tab == FindTab::GoTo {
-        return goto_body(app, ui, goto_what, goto_target, message);
+        return goto_body(app, ui, goto_what, goto_target, message, focus);
     }
     let replace_mode = *tab == FindTab::Replace;
     ui.horizontal(|ui| {
@@ -535,11 +536,11 @@ fn insert_table_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         return false;
     };
     egui::Grid::new("it").num_columns(2).show(ui, |ui| {
-        ui.label(tl!("Number of columns:"));
-        ui.add(egui::DragValue::new(cols).range(1..=63));
+        let columns_label = ui.label(tl!("Number of columns:"));
+        ui.add(egui::DragValue::new(cols).range(1..=63)).labelled_by(columns_label.id);
         ui.end_row();
-        ui.label(tl!("Number of rows:"));
-        ui.add(egui::DragValue::new(rows).range(1..=1000));
+        let rows_label = ui.label(tl!("Number of rows:"));
+        ui.add(egui::DragValue::new(rows).range(1..=1000)).labelled_by(rows_label.id);
         ui.end_row();
     });
     let (ok, cancel) = buttons(ui, tl!("OK"));
@@ -797,7 +798,7 @@ fn zoom_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     // Logarithmic like the status bar slider, and wide enough to aim: the default 100 pt
     // linear slider jumped from 100% to 480% within a short drag (issue #67).
     ui.spacing_mut().slider_width = 220.0;
-    ui.add(egui::Slider::new(percent, 10.0..=500.0).logarithmic(true).step_by(1.0).suffix("%"));
+    ui.add(egui::Slider::new(percent, 10.0..=500.0).logarithmic(true).step_by(1.0).suffix("%").text(tl!("Zoom")));
     let mut fit = None;
     ui.horizontal(|ui| {
         if ui.button(tl!("Page width")).clicked() {

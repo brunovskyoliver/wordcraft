@@ -1205,6 +1205,21 @@ fn observe_ime_drops_a_preedit_without_focus() {
 }
 
 #[test]
+fn observe_ime_drops_canvas_composition_while_a_modal_dialog_is_open() {
+    let ctx = egui::Context::default();
+    let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    a.canvas.focused = true;
+    a.canvas.ime_preedit = "に".into();
+    a.canvas.ime_preedit_range = Some(0..1);
+    a.run("ui.dialog", json!({"name": "font"})).unwrap();
+    let r = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(10.0, 10.0));
+    observe_ime(&mut a, &ctx, Some((r, r)), false);
+    assert!(a.canvas.ime_preedit.is_empty());
+    assert_eq!(a.canvas.ime_preedit_range, None);
+    assert!(ctx.output(|o| o.ime.is_none()), "the document does not advertise IME ownership behind Font");
+}
+
+#[test]
 fn typing_with_smart_art_selected_types_into_an_item() {
     let ctx = egui::Context::default();
     let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());

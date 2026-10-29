@@ -78,6 +78,7 @@ impl WordApp {
     /// Dialogs, panes and other overlays drawn over the window. A command that brings another
     /// window's state in ends the drawing: the rest would be the other window's.
     pub(super) fn show_overlays(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let overlay_owned_input = panes::overlay_open(self, ctx);
         let window = self.windows.shown();
         let moved = |app: &WordApp| app.windows.shown() != window;
         content_controls::popup(self, ctx);
@@ -95,7 +96,9 @@ impl WordApp {
         if moved(self) {
             return;
         }
-        keys::global_shortcuts(self, ctx);
+        if !overlay_owned_input {
+            keys::global_shortcuts(self, ctx);
+        }
         if moved(self) {
             return;
         }

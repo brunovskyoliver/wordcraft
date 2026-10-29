@@ -133,10 +133,18 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::Layout(d) => d.title(),
     };
     let id = egui::Id::unique(("dialog", title));
+    // Long forms must keep their title and every field reachable on short windows and at
+    // larger interface sizes. The window bounds the scroll area to the viewport; short forms
+    // still shrink to their content.
     let window = crate::window_close::window(ctx, egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false));
+    let frame = egui::Frame::window(&ctx.global_style());
+    // The title frame has its own stroke in addition to the outer window frame.
+    let chrome_height = crate::window_close::geometry(ctx).title_h + frame.stroke.width * 2.0 + frame.total_margin().sum().y;
+    let body_height = (ctx.content_rect().height() - chrome_height).max(0.0);
     let shown = place_dialog(ctx, id, window).show(ctx, |ui| {
         ui.set_min_width(340.0);
-        close = body(app, ui, &mut d);
+        ui.set_max_height(body_height);
+        close = egui::ScrollArea::vertical().id_salt("dialog_body").max_height(body_height).show(ui, |ui| body(app, ui, &mut d)).inner;
     });
     if let Some(shown) = &shown {
         if let Dialog::SaveChanges { name, message, .. } = &d {
@@ -205,8 +213,10 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
 pub(super) fn close_button(ui: &mut Ui) -> bool {
     ui.add_space(8.0);
     let mut close = ui.input(|i| i.key_pressed(egui::Key::Escape));
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        close |= ui.add(crate::widgets::primary_button(ui, tl!("Close"))).clicked();
+    ui.horizontal(|ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            close |= ui.add(crate::widgets::primary_button(ui, tl!("Close"))).clicked();
+        });
     });
     close
 }

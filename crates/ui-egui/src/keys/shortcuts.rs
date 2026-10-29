@@ -245,22 +245,17 @@ pub(super) fn is_global_shortcut(key: Key, m: Modifiers) -> bool {
 }
 
 /// Command shortcuts when the canvas isn't focused and no text field is: nothing has the
-/// keyboard, or a button or a pane's title bar does. A focused widget in an open dialog or popup
-/// keeps the keys, so Ctrl+Z on a dialog button can't undo the document behind it.
+/// keyboard, or a button or a pane's title bar does. Dialogs and popups keep the keys even
+/// before a child widget takes focus, so Ctrl+Z cannot undo the document behind them.
 pub fn global_shortcuts(app: &mut WordApp, ctx: &egui::Context) {
-    // Customize Keyboard records the keys pressed; they never run commands meanwhile.
-    if app.canvas.focused
-        || ctx.text_edit_focused()
-        || (ctx.egui_wants_keyboard_input() && crate::panes::overlay_open(app, ctx))
-        || matches!(app.dialog, Some(crate::dialogs::Dialog::CustomizeKeyboard { .. }))
-    {
+    if app.canvas.focused || ctx.text_edit_focused() || crate::panes::overlay_open(app, ctx) {
         return;
     }
     let events = ctx.input(|i| i.events.clone());
     let window = app.windows.shown();
     for e in events {
-        // The rest of the keys were pressed in a window that closed or went to the back.
-        if app.windows.shown() != window {
+        // A shortcut may open a dialog or switch windows midway through this event batch.
+        if app.windows.shown() != window || crate::panes::overlay_open(app, ctx) {
             break;
         }
         if let egui::Event::Key { key, pressed: true, modifiers, .. } = e {

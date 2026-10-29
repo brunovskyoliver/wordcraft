@@ -170,7 +170,7 @@ pub(super) fn command_matches(c: &wordcraft_engine::CommandSpec, query: &str) ->
 
 /// The Find and Replace dialog's Go To tab (#712): a page (a number, or `+2` / `-1` from the
 /// current page; empty, Next and Previous step a page) or a bookmark. Returns true to close.
-pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, target: &mut String, message: &mut String) -> bool {
+pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, target: &mut String, message: &mut String, focus: &mut bool) -> bool {
     // The document's bookmarks, only while they are listed (finding them walks the document).
     let bookmarks: Vec<String> = if *what == GoToWhat::Bookmark {
         app.session.doc.bookmarks().into_iter().map(|(n, _)| n).filter(|n| !n.starts_with('_')).collect()
@@ -183,6 +183,7 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
             for (w, label) in [(GoToWhat::Page, "Page"), (GoToWhat::Bookmark, "Bookmark")] {
                 if ui.selectable_label(*what == w, tl!(label)).clicked() && *what != w {
                     *what = w;
+                    *focus = true;
                     target.clear();
                     message.clear();
                 }
@@ -193,14 +194,14 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
             GoToWhat::Page => {
                 let label = ui.label(tl!("Enter page number:"));
                 let r = ui.add(egui::TextEdit::singleline(target).desired_width(220.0)).labelled_by(label.id);
-                if !r.has_focus() {
+                if std::mem::take(focus) {
                     r.request_focus();
                 }
                 ui.label(egui::RichText::new(tl!("Type +2 or -1 to move from the page you are on.")).weak());
             }
             GoToWhat::Bookmark => {
                 let label = ui.label(tl!("Enter bookmark name:"));
-                craft_ui::ComboBox::from_id_salt("goto_bookmark")
+                let r = craft_ui::ComboBox::from_id_salt("goto_bookmark")
                     .width(220.0)
                     .selected_text(target.as_str())
                     .show_ui(ui, |ui| {
@@ -210,6 +211,9 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
                     })
                     .response
                     .labelled_by(label.id);
+                if std::mem::take(focus) {
+                    r.request_focus();
+                }
                 if bookmarks.is_empty() {
                     ui.label(egui::RichText::new(tl!("This document has no bookmarks.")).weak());
                 }

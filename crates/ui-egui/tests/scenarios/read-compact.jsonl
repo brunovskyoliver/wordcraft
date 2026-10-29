@@ -1,0 +1,5 @@
+{"width": 800, "height": 600, "pixelsPerPoint": 1.25, "empty": true}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "Reading mode keeps its controls reachable in a compact window.\nSecond paragraph for navigation."}}}
+{"method": "engine.execute", "params": {"command": "view.readMode"}}
+{"method": "ui.inspect", "expect": {"result": {"view": {"readMode": true}}}}
+{"shot": "read-compact.png"}

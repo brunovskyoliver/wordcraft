@@ -3,6 +3,121 @@ use wordcraft_doc::Pos;
 use wordcraft_doc::props::Align;
 use wordcraft_engine::Session;
 
+/// Opening a dialog must stop document input even before a field in it takes focus.
+#[test]
+fn dialogs_keep_document_text_and_selection_until_cancelled() {
+    for name in ["font", "paragraph"] {
+        let app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("A small editing regression.")), crate::Services::default());
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1024.0, 768.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        h.state_mut().run("select.text", json!({"text": "small"})).unwrap();
+        let selection = h.state().session.sel.clone();
+        h.state_mut().run("ui.dialog", json!({"name": name})).unwrap();
+        h.run_steps(3);
+        h.event(egui::Event::Text("LEAK".into()));
+        h.key_press(egui::Key::Delete);
+        h.run_steps(3);
+        assert_eq!(h.state().session.sel, selection, "{name} keeps the document selection");
+        assert!(!h.state().session.dirty && !h.state().session.can_undo(), "{name} takes input away from the document");
+        h.key_press(egui::Key::Escape);
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        assert_eq!(h.state().session.sel, selection, "Escape dismisses {name} without collapsing selection");
+        h.event(egui::Event::Text("replacement".into()));
+        h.run_steps(3);
+        let text = h.state_mut().session.run("document.text", &json!({})).unwrap();
+        assert_eq!(text["text"], "A replacement editing regression.", "typing resumes on the preserved selection");
+    }
+}
+
+#[test]
+fn modeless_index_dialog_keeps_document_keyboard_selection_available() {
+    let app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Choose an index entry.")), crate::Services::default());
+    let mut h = egui_kittest::Harness::builder().with_size(vec2(1024.0, 768.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(6);
+    h.state_mut().run("ui.dialog", json!({"name": "markEntry"})).unwrap();
+    h.run_steps(3);
+    h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::ArrowRight);
+    h.run_steps(3);
+    assert!(!h.state().session.sel.is_collapsed(), "Mark Index Entry permits selecting the next entry in the document");
+    let selection = h.state().session.sel.clone();
+    h.key_press(egui::Key::Escape);
+    h.run_steps(3);
+    assert!(h.state().dialog.is_none());
+    assert_eq!(h.state().session.sel, selection, "Escape closes the modeless dialog before changing selection");
+}
+
+/// UI-AUDIT-001: tall dialogs must keep their title and actions reachable on short screens.
+#[test]
+fn tall_dialogs_scroll_within_short_windows_and_cancel_without_edits() {
+    use egui_kittest::kittest::Queryable;
+    for (name, title) in [("defineList", "Define New Multilevel List"), ("paragraph", "Paragraph")] {
+        for height in [360.0, 480.0, 900.0] {
+            let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Keep this text.")), crate::Services::default());
+            app.run("ui.dialog", json!({"name": name})).unwrap();
+            let mut h = egui_kittest::Harness::builder().with_size(vec2(1024.0, height)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(6);
+            let id = egui::Id::unique(("dialog", title));
+            let rect = h.ctx.memory(|m| m.area_rect(id)).unwrap();
+            assert!(rect.top() >= -0.5 && rect.bottom() <= height + 0.5, "{name} outside {height}-point viewport: {rect:?}");
+            h.get_by_label("Cancel").scroll_to_me();
+            h.run_steps(8);
+            let cancel = h.get_by_label("Cancel").rect();
+            assert!(cancel.top() >= 0.0 && cancel.bottom() <= height, "{name}: cancel remains clipped: {cancel:?}");
+            h.get_by_label("Cancel").click();
+            h.run_steps(3);
+            assert!(h.state().dialog.is_none(), "{name} closes on Cancel");
+            assert!(!h.state().session.dirty && !h.state().session.can_undo(), "{name} cancellation changes no document state");
+        }
+    }
+}
+
+#[test]
+fn short_dialogs_keep_their_footer_at_the_content_edge() {
+    use egui_kittest::kittest::Queryable;
+    for (name, title, button) in [("zoom", "Zoom", "Cancel"), ("insertTable", "Insert Table", "Cancel"), ("manageStyles", "Manage Styles", "Close")] {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("ui.dialog", json!({"name": name})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1024.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        let rect = h.ctx.memory(|m| m.area_rect(egui::Id::unique(("dialog", title)))).unwrap();
+        let footer = h.query_all_by_label(button).max_by(|a, b| a.rect().bottom().total_cmp(&b.rect().bottom())).unwrap().rect();
+        let frame = egui::Frame::window(&h.ctx.global_style());
+        assert!(
+            rect.bottom() - footer.bottom() <= frame.total_margin().bottom + 2.0,
+            "{name} has blank space under its footer: {rect:?} / {footer:?}"
+        );
+    }
+}
+
 /// #3931: hovering Insert › Table's grid asks the page for a preview of that table (rows by
 /// columns) and changes nothing; leaving the grid drops it; a click inserts the table with no
 /// preview left over for the page to show on top of it.
@@ -320,10 +435,9 @@ fn boxes_that_keep_focus_do_not_interrupt_ime_every_frame() {
         }
         assert_eq!(typed(h.state().dialog.as_ref()), Some("ab"), "{name}: the keys reach the box");
 
-        // Tab moves the keyboard to the dialog's next control and the box takes it back. As
-        // egui-winit does, count a reset when IME comes back on or is interrupted while on (each
-        // recreates the XIM context): one or two for the round trip, then none, and the next
-        // key reaches the box.
+        // Count a reset when IME comes back on or is interrupted while on (each recreates
+        // the XIM context). Go To permits keyboard traversal; the other search boxes keep
+        // focus. Either round trip must reset once or twice, then remain stable.
         let reset = |h: &egui_kittest::Harness<'_, WordApp>, on: &mut bool| {
             let ime = h.output().platform_output.ime.as_ref();
             let reset = ime.is_some_and(|i| !*on || i.should_interrupt_composition);
@@ -336,6 +450,14 @@ fn boxes_that_keep_focus_do_not_interrupt_ime_every_frame() {
         for _ in 0..4 {
             h.step();
             back += usize::from(reset(&h, &mut on));
+        }
+        if name == "goto" {
+            assert!(!on, "Go To lets Tab leave its target field instead of stealing focus back");
+            h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::Tab);
+            for _ in 0..4 {
+                h.step();
+                back += usize::from(reset(&h, &mut on));
+            }
         }
         assert!((1..=2).contains(&back), "{name}: Tab and back reset the input method {back} times");
         for frame in 0..4 {
@@ -1583,4 +1705,62 @@ fn the_custom_properties_dialog_leaves_imported_non_text_properties_alone() {
     h.run_steps(4);
     let kinds: Vec<(&str, &str)> = h.state().session.doc.custom_props.iter().map(|p| (p.name.as_str(), p.kind.as_str())).collect();
     assert_eq!(kinds, [("Status", "lpwstr"), ("Count", "i4")], "Cancel leaves the imported property as it was");
+}
+
+/// Go To starts with a focused target field, then lets the user select and edit the
+/// document while it stays open. Both targets consume the initial-focus request.
+#[test]
+fn goto_page_and_bookmark_release_focus_to_the_document() {
+    use egui_kittest::kittest::Queryable;
+    for bookmark in [false, true] {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Choose an index entry.")), crate::Services::default());
+        app.run("ui.dialog", json!({"name": "goto"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1024.0, 768.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        assert!(h.get_by_label("Enter page number:").is_focused(), "Page receives the initial focus");
+        assert!(matches!(h.state().dialog, Some(Dialog::Find { focus: false, .. })), "the initial focus request is consumed");
+        if bookmark {
+            h.get_by_label("Bookmark").click();
+            h.run_steps(4);
+            assert!(h.get_by_label("Enter bookmark name:").is_focused(), "changing the target focuses its field once");
+            assert!(matches!(h.state().dialog, Some(Dialog::Find { focus: false, .. })));
+        }
+        // The document's top edge lies above the centred Go To dialog. Click the real
+        // canvas instead of setting its focus flag, then wait for any focus stealing.
+        let canvas = h.state().canvas.viewport.unwrap();
+        let point = egui::pos2(canvas.center().x, canvas.top() + 8.0);
+        let dialog = h.ctx.memory(|m| m.area_rect(egui::Id::unique(("dialog", "Find and Replace")))).unwrap();
+        assert!(!dialog.contains(point), "test click must reach the canvas");
+        h.hover_at(point);
+        for pressed in [true, false] {
+            h.event(egui::Event::PointerButton { pos: point, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
+            h.run_steps(1);
+        }
+        h.run_steps(6);
+        assert!(h.state().canvas.focused, "Go To must not reclaim document focus: bookmark={bookmark}");
+        h.state_mut().run("select.text", json!({"text": "entry"})).unwrap();
+        h.key_press(egui::Key::ArrowRight);
+        h.run_steps(3);
+        assert!(h.state().session.sel.is_collapsed(), "document arrow navigation remains available");
+        h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::ArrowLeft);
+        h.run_steps(3);
+        assert!(!h.state().session.sel.is_collapsed(), "document keyboard selection remains available");
+        h.event(egui::Event::Text("Q".into()));
+        h.run_steps(3);
+        let text = h.state_mut().session.run("document.text", &json!({})).unwrap();
+        assert_eq!(text["text"], "Choose an index entrQ.");
+        assert!(h.state().dialog.is_some(), "editing does not close Go To");
+        let selection = h.state().session.sel.clone();
+        h.key_press(egui::Key::Escape);
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        assert_eq!(h.state().session.sel, selection, "Escape closes Go To without moving the caret");
+    }
 }

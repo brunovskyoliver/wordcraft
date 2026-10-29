@@ -8,6 +8,8 @@
 //!   mirrored networking with Zotero on Windows, a local proxy) leaves only the loopback rule,
 //!   but only when the tables were read in full: a read error, or an open error other than
 //!   "not found" (e.g. a sandbox profile that denies `/proc/net/tcp`), refuses.
+//!   Before `accept`, Linux reports the connected server socket with uid and inode zero;
+//!   that row is checked through its listening socket's owner instead, never treated as root.
 //!
 //! On Windows, macOS and the BSDs there is **no same-user check**: the loopback rule is the
 //! only one, so any local account's listener on the port is taken for Zotero. Those systems have
@@ -75,16 +77,32 @@ fn scan_tables<R: std::io::Read>(
     Ok(rows)
 }
 
-/// The uids found for the two rows of one connection.
+/// The connection's owners and the listening sockets that can own an unaccepted peer.
 #[derive(Default)]
 struct Rows {
     ours: Option<u32>,
     theirs: Option<u32>,
+    /// Address family of an established peer with no userspace socket yet (uid/inode zero).
+    unaccepted_ipv6: Option<bool>,
+    listener_v4: ListenerOwner,
+    listener_v6: ListenerOwner,
+}
+
+#[derive(Default)]
+struct ListenerOwner {
+    uid: Option<u32>,
+    ambiguous: bool,
 }
 
 impl Rows {
     fn done(&self) -> bool {
         self.ours.is_some() && self.theirs.is_some()
+    }
+
+    fn record_listener(&mut self, ipv6: bool, uid: u32) {
+        let owner = if ipv6 { &mut self.listener_v6 } else { &mut self.listener_v4 };
+        owner.ambiguous |= owner.uid.is_some_and(|old| old != uid);
+        owner.uid = Some(uid);
     }
 }
 
@@ -109,15 +127,31 @@ fn scan_table(mut table: impl std::io::BufRead, local: SocketAddr, peer: SocketA
         }
         let line = String::from_utf8_lossy(&line);
         let mut f = line.split_whitespace();
-        let (Some(l), Some(r), Some(uid)) = (f.nth(1).and_then(parse_addr), f.next().and_then(parse_addr), f.nth(4)) else {
+        let (Some(l), Some(r), Some(state), Some(uid)) = (f.nth(1).and_then(parse_addr), f.next().and_then(parse_addr), f.next(), f.nth(3)) else {
             continue;
         };
         let Ok(uid) = uid.parse::<u32>() else { continue };
+        let inode = f.nth(1).and_then(|v| v.parse::<u64>().ok());
+        let ipv6 = l.is_ipv6();
         let (l, r) = (key(l), key(r));
         if l == local && r == peer {
             rows.ours = Some(uid);
         } else if l == peer && r == local {
-            rows.theirs = Some(uid);
+            // Linux's sock_i_uid/sock_i_ino report zero until accept attaches a userspace
+            // socket. A real root-owned socket has an inode and must still be checked as root.
+            if state == "01" && uid == 0 && inode == Some(0) {
+                rows.unaccepted_ipv6 = Some(ipv6);
+            } else {
+                rows.theirs = Some(uid);
+            }
+        } else if state == "0A"
+            && l.1 == peer.1
+            && (l.0 == peer.0 || l.0.is_unspecified())
+            && r.0.is_unspecified()
+            && r.1 == 0
+            && inode.is_some_and(|n| n != 0)
+        {
+            rows.record_listener(ipv6, uid);
         }
         if rows.done() {
             return Ok(());
@@ -156,7 +190,22 @@ fn read_line_capped(r: &mut impl std::io::BufRead, out: &mut Vec<u8>) -> std::io
 /// `me` (this process's). When the listener isn't listed in a table that was read in full (WSL2,
 /// a proxy) or our uid is unknown, its owner is unknown and the loopback rule decides.
 fn decide(rows: &Rows, peer: SocketAddr, me: Option<u32>) -> Result<(), ZoteroError> {
-    match (rows.ours.or(me), rows.theirs) {
+    let theirs = match (rows.theirs, rows.unaccepted_ipv6) {
+        // A real connected socket's owner always wins over any listener candidate.
+        (Some(uid), _) => Some(uid),
+        (None, Some(ipv6)) => {
+            let owner = if ipv6 { &rows.listener_v6 } else { &rows.listener_v4 };
+            if owner.ambiguous || owner.uid.is_none() {
+                return Err(ZoteroError::Refused(format!(
+                    "the connection on port {} has not been accepted and its listening socket's owner could not be verified",
+                    peer.port()
+                )));
+            }
+            owner.uid
+        }
+        (None, None) => None,
+    };
+    match (rows.ours.or(me), theirs) {
         (Some(a), Some(b)) if a == b => Ok(()),
         (Some(_), Some(b)) => {
             Err(ZoteroError::Refused(format!("the program on port {} runs as another user (uid {b}), so it isn't your Zotero", peer.port())))
@@ -219,6 +268,15 @@ mod tests {
         format!("   0: {} {} 01 00000000:00000000 00:00000000 00000000  {uid:>4}        0 12345 1 0000000000000000 20 4 30 10 -1\n", hex(l), hex(r))
     }
 
+    fn listener(addr: SocketAddr, uid: u32) -> String {
+        let remote = if addr.is_ipv6() { "[::]:0" } else { "0.0.0.0:0" };
+        row(addr, remote.parse().unwrap(), uid).replacen(" 01 ", " 0A ", 1)
+    }
+
+    fn unaccepted(local: SocketAddr, peer: SocketAddr) -> String {
+        row(peer, local, 0).replacen(" 12345 ", " 0 ", 1)
+    }
+
     const HEADER: &str = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n";
 
     /// Our side and Zotero's listening side of a loopback connection.
@@ -247,6 +305,75 @@ mod tests {
         // Junk lines are skipped.
         let junk = format!("{HEADER}garbage\n 1: zz:zz yy:yy 01 x x x x\n{}{}", row(local, peer, 7), row(peer, local, 7));
         assert_eq!(same_owner(&junk, local, peer, None), Ok(()));
+    }
+
+    /// The connection exists before the server's accept thread runs. Its zero uid/inode
+    /// describes a kernel socket, not a root-owned program; the listener still has its owner.
+    #[test]
+    fn an_unaccepted_connection_uses_its_verified_listener_owner() {
+        let (local, peer) = addrs();
+        for listen in [peer, "0.0.0.0:23116".parse().unwrap()] {
+            for uid in [0, 1000, 1001] {
+                let table = format!("{HEADER}{}{}{}", row(local, peer, 1000), unaccepted(local, peer), listener(listen, uid));
+                let result = same_owner(&table, local, peer, None);
+                if uid == 1000 {
+                    assert_eq!(result, Ok(()));
+                } else {
+                    assert!(matches!(result, Err(ZoteroError::Refused(e)) if e.contains("another user")), "uid {uid}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_real_foreign_socket_is_not_overridden_by_a_listener_of_ours() {
+        let (local, peer) = addrs();
+        for uid in [0, 1001] {
+            let table = format!("{HEADER}{}{}{}", listener(peer, 1000), row(local, peer, 1000), row(peer, local, uid));
+            assert!(matches!(same_owner(&table, local, peer, None), Err(ZoteroError::Refused(e)) if e.contains("another user")));
+        }
+    }
+
+    #[test]
+    fn an_unaccepted_connection_without_a_verified_listener_is_refused() {
+        let (local, peer) = addrs();
+        for listeners in [
+            String::new(),
+            listener("127.0.0.2:23116".parse().unwrap(), 1000),
+            listener("127.0.0.1:23117".parse().unwrap(), 1000),
+            listener("[::]:23116".parse().unwrap(), 1000),
+            listener(peer, 1000).replacen(" 12345 ", " 0 ", 1),
+            format!("{}{}", listener(peer, 1000), listener("0.0.0.0:23116".parse().unwrap(), 1001)),
+        ] {
+            let table = format!("{HEADER}{listeners}{}{}", row(local, peer, 1000), unaccepted(local, peer));
+            assert!(matches!(same_owner(&table, local, peer, None), Err(ZoteroError::Refused(e)) if e.contains("could not be verified")));
+        }
+    }
+
+    /// A dual-stack server's pending socket is in tcp6 even when its client uses IPv4.
+    /// An unrelated IPv4 listener at the same port must neither grant nor deny that ownership.
+    #[test]
+    fn an_unaccepted_dual_stack_connection_uses_the_server_address_family() {
+        let (local, peer) = addrs();
+        let mapped = |a: SocketAddr| match a.ip() {
+            IpAddr::V4(v4) => SocketAddr::new(IpAddr::V6(v4.to_ipv6_mapped()), a.port()),
+            IpAddr::V6(_) => a,
+        };
+        for listen in [mapped(peer), "[::]:23116".parse().unwrap()] {
+            for uid in [1000, 1001] {
+                let other_family_uid = if uid == 1000 { 1001 } else { 1000 };
+                let t4 = format!("{HEADER}{}{}", listener("0.0.0.0:23116".parse().unwrap(), other_family_uid), row(local, peer, 1000));
+                let t6 = format!("{HEADER}{}{}", listener(listen, uid), unaccepted(mapped(local), mapped(peer)));
+                let open = |p: &str| Ok::<_, std::io::Error>(if p == "t4" { t4.as_bytes() } else { t6.as_bytes() });
+                let rows = scan_tables(["t4", "t6"], open, local, peer).unwrap();
+                let result = decide(&rows, peer, None);
+                if uid == 1000 {
+                    assert_eq!(result, Ok(()));
+                } else {
+                    assert!(matches!(result, Err(ZoteroError::Refused(e)) if e.contains("another user")));
+                }
+            }
+        }
     }
 
     /// WSL2 mirrored networking (Zotero on Windows) or a local proxy: the listener
@@ -380,6 +507,15 @@ mod tests {
     }
 
     #[test]
+    fn a_pending_peer_does_not_hide_a_socket_table_read_failure() {
+        let (local, peer) = addrs();
+        let data = format!("{HEADER}{}{}{}", listener(peer, 1000), row(local, peer, 1000), unaccepted(local, peer)).into_bytes();
+        let mut rows = Rows::default();
+        let result = scan_table(std::io::BufReader::new(Failing(std::io::Cursor::new(data))), local, peer, &mut rows);
+        assert!(matches!(result, Err(ZoteroError::Refused(e)) if e.contains("socket table")));
+    }
+
+    #[test]
     fn an_overlong_line_is_skipped_without_gluing_to_the_next() {
         let (local, peer) = addrs();
         let table = format!("{HEADER}{}\n{}{}", "x".repeat(100_000), row(local, peer, 1000), row(peer, local, 1001));
@@ -409,6 +545,17 @@ mod tests {
     fn our_own_listener_passes_the_owner_check() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let _accepted = listener.accept().unwrap();
+        assert_eq!(check(&stream), Ok(()));
+    }
+
+    /// Deterministic version of the fake-Zotero race: do not accept until the check is done.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn our_own_listener_passes_the_owner_check_before_accept() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        assert_eq!(check(&stream), Ok(()));
         let _accepted = listener.accept().unwrap();
         assert_eq!(check(&stream), Ok(()));
     }
