@@ -5,13 +5,14 @@ pub(super) fn nav(app: &mut WordApp, ui: &mut Ui) {
     let qid = app.window_id("nav_query");
     let mut q = ui.data(|d| d.get_temp::<String>(qid)).unwrap_or_default();
     // Ctrl+F with text selected searches for it, as Word does (a selection within one line).
-    let focus = std::mem::take(&mut app.nav_search_focus);
+    let owns_input = crate::modal_input::keys_enabled(ui);
+    let focus = owns_input && std::mem::take(&mut app.nav_search_focus);
     let picked = focus.then(|| app.session.selected_text()).filter(|t| !t.is_empty() && !t.contains(['\n', '\r']) && t.chars().count() <= 255);
     if let Some(t) = &picked {
         q = t.clone();
     }
     let mut out = egui::TextEdit::singleline(&mut q).hint_text(tl!("Search document")).desired_width(f32::INFINITY).show(ui);
-    let r = out.response.clone();
+    let r = out.response.response.clone().accessible_name(tl!("Search document"));
     if focus {
         // Focused with its text selected, so typing replaces it.
         r.request_focus();
@@ -19,7 +20,7 @@ pub(super) fn nav(app: &mut WordApp, ui: &mut Ui) {
         out.state.cursor.set_char_range(Some(all));
         out.state.store(ui.ctx(), r.id);
     }
-    if r.changed() || picked.is_some() {
+    if owns_input && (r.changed() || picked.is_some()) {
         app.ui.nav_tab = "results".into();
         ui.data_mut(|d| d.insert_temp(qid, q.clone()));
         if !q.is_empty() {

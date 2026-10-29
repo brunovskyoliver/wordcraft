@@ -136,7 +136,10 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
     // Long forms must keep their title and every field reachable on short windows and at
     // larger interface sizes. The window bounds the scroll area to the viewport; short forms
     // still shrink to their content.
-    let window = crate::window_close::window(ctx, egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false));
+    let enabled = !crate::modal_input::above_dialog(app);
+    let window = egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false).enabled(enabled);
+    let window = if d.is_modeless() { window } else { crate::modal_input::window(ctx, id, window) };
+    let window = crate::window_close::window(ctx, window);
     let frame = egui::Frame::window(&ctx.global_style());
     // The title frame has its own stroke in addition to the outer window frame.
     let chrome_height = crate::window_close::geometry(ctx).title_h + frame.stroke.width * 2.0 + frame.total_margin().sum().y;
@@ -174,7 +177,9 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
 
 /// Cancel key for dialogs: Escape everywhere, plus ⌘. (Command+Period) on macOS.
 pub(crate) fn cancel_key_pressed(ui: &Ui) -> bool {
-    ui.input(|i| i.key_pressed(egui::Key::Escape) || (cfg!(target_os = "macos") && i.modifiers.command && i.key_pressed(egui::Key::Period)))
+    crate::modal_input::key_input(ui, |i| {
+        i.key_pressed(egui::Key::Escape) || (cfg!(target_os = "macos") && i.modifiers.command && i.key_pressed(egui::Key::Period))
+    })
 }
 
 /// Lays out an OK and a Cancel button right-to-left, in the platform's order:
@@ -201,7 +206,7 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
             if cancelb.clicked() || (keys && cancel_key_pressed(ui)) {
                 r.1 = true;
             }
-            if okb.clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
+            if okb.clicked() || (keys && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter))) {
                 r.0 = true;
             }
         });
@@ -212,7 +217,7 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
 /// A dialog's single Close button (Escape too).
 pub(super) fn close_button(ui: &mut Ui) -> bool {
     ui.add_space(8.0);
-    let mut close = ui.input(|i| i.key_pressed(egui::Key::Escape));
+    let mut close = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape));
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             close |= ui.add(crate::widgets::primary_button(ui, tl!("Close"))).clicked();

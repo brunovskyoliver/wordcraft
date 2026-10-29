@@ -47,7 +47,7 @@ impl KeyboardForm {
 pub(crate) fn categories(app: &WordApp) -> Vec<String> {
     let mut other: Vec<String> = Vec::new();
     let mut tabs: Vec<&str> = Vec::new();
-    for spec in app.session.registry.all() {
+    for spec in app.session.registry.all().iter().filter(|s| s.ui_visible) {
         let tab = spec.location.split(" › ").next().unwrap_or("");
         if crate::ribbon::TABS.contains(&tab) {
             if !tabs.contains(&tab) {
@@ -68,6 +68,7 @@ pub(crate) fn commands(app: &WordApp, category: &str) -> Vec<(&'static str, Stri
         .registry
         .all()
         .iter()
+        .filter(|s| s.ui_visible)
         .filter(|s| category == ALL || s.location.split(" › ").next() == Some(category))
         .map(|s| (s.id, tl!(s.label).to_string()))
         .collect();
@@ -89,6 +90,7 @@ pub(crate) fn matching_commands(app: &WordApp, category: &str, query: &str) -> V
         .registry
         .all()
         .iter()
+        .filter(|s| s.ui_visible)
         .filter(|s| s.id.to_lowercase().contains(&q) || s.label.to_lowercase().contains(&q) || crate::i18n::lowercase(tl!(s.label)).contains(&q))
         .map(|s| (s.id.to_string(), tl!(s.label).to_string()))
         .collect();
@@ -111,6 +113,9 @@ fn assignable(key: &str) -> bool {
 
 /// The key combination a focused "New shortcut" box received this frame, if any.
 fn pressed_key(ui: &Ui) -> Option<String> {
+    if !crate::modal_input::keys_enabled(ui) {
+        return None;
+    }
     let (events, mods) = ui.input(|i| (i.events.clone(), i.modifiers));
     let mut out = None;
     for e in events {
@@ -305,7 +310,7 @@ fn capture(ui: &mut Ui, f: &mut KeyboardForm) -> bool {
         ui.memory_mut(|m| {
             m.set_focus_lock_filter(resp.id, egui::EventFilter { tab: true, horizontal_arrows: true, vertical_arrows: true, escape: true })
         });
-        if ui.input(|i| i.key_pressed(egui::Key::Escape) && i.modifiers.is_none()) {
+        if crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape) && i.modifiers.is_none()) {
             close = true;
         }
         if let Some(k) = pressed_key(ui) {

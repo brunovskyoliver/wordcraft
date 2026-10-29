@@ -1058,3 +1058,305 @@ fn rtf_tracked_changes_accept_and_reject_after_opening_and_round_trip() {
         }
     }
 }
+
+#[test]
+fn thesaurus_lookup_uses_selection_and_never_edits() {
+    let mut s = Session::new(Document::from_text("good small house"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let selection = s.sel.clone();
+    let before = serde_json::to_value(&s.doc).unwrap();
+    let revision = s.rev();
+    let result = s.run("review.thesaurus", &json!({})).unwrap();
+    assert_eq!(result["word"], "small");
+    assert!(result["synonyms"].as_array().unwrap().contains(&json!("tiny")));
+    assert!(result["target"].is_object());
+    assert_eq!(s.run("review.thesaurus", &json!({"word": "HAPPY"})).unwrap()["word"], "happy");
+    assert!(s.run("review.thesaurus", &json!({"word": "zyzzyva"})).unwrap()["synonyms"].as_array().unwrap().is_empty());
+    assert_eq!(s.sel, selection);
+    assert_eq!(serde_json::to_value(&s.doc).unwrap(), before);
+    assert_eq!(s.rev(), revision);
+    assert_eq!(s.undo_depth(), 0);
+    assert!(!s.dirty && !s.view.thesaurus_pane);
+}
+
+#[test]
+fn synonym_replacement_preserves_spaces_formatting_and_one_undo_step() {
+    for caret in [false, true] {
+        let mut s = Session::new(Document::from_text("small  house"));
+        s.run("select.text", &json!({"text": "small"})).unwrap();
+        s.run("format.bold", &json!({})).unwrap();
+        if caret {
+            s.run("caret.set", &json!({"pos": {"block": 0, "off": 2}})).unwrap();
+        } else {
+            // Word selection includes trailing spaces, but replacement must leave them alone.
+            s.run("select.range", &json!({"anchor": {"block": 0, "off": 7}, "focus": {"block": 0, "off": 0}})).unwrap();
+        }
+        let before = serde_json::to_value(&s.doc).unwrap();
+        let selection = s.sel.clone();
+        let depth = s.undo_depth();
+        let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+        s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "tiny"})).unwrap();
+        assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body).trim_end(), "tiny  house");
+        assert_eq!(s.undo_depth(), depth + 1);
+        s.run("select.text", &json!({"text": "tiny"})).unwrap();
+        assert_eq!(s.run("format.state", &json!({})).unwrap()["bold"], true);
+        s.run("edit.undo", &json!({})).unwrap();
+        assert_eq!(serde_json::to_value(&s.doc).unwrap(), before);
+        assert_eq!(s.sel, selection);
+    }
+}
+
+#[test]
+fn thesaurus_replacement_refuses_stale_or_forged_receipts_without_edits() {
+    for change in ["selection", "format", "undo", "document", "range", "text", "word", "missing"] {
+        let mut s = Session::new(Document::from_text("small good"));
+        s.run("select.text", &json!({"text": "small"})).unwrap();
+        let mut lookup = s.run("review.thesaurus", &json!({})).unwrap();
+        match change {
+            "selection" => {
+                s.run("select.text", &json!({"text": "good"})).unwrap();
+            }
+            "format" => {
+                s.run("format.italic", &json!({})).unwrap();
+            }
+            "undo" => {
+                s.run("format.italic", &json!({})).unwrap();
+                s.run("edit.undo", &json!({})).unwrap();
+            }
+            "document" => {
+                s.add_document(Document::from_text("small good"));
+            }
+            "range" => {
+                lookup["target"]["start"]["off"] = json!(1);
+            }
+            "text" => {
+                lookup["target"]["text"] = json!("forged");
+            }
+            "word" => {
+                lookup["word"] = json!("unknown");
+            }
+            "missing" => {
+                lookup["target"] = serde_json::Value::Null;
+            }
+            _ => panic!("unknown receipt mutation: {change}"),
+        }
+        let doc = serde_json::to_value(&s.doc).unwrap();
+        let sel = s.sel.clone();
+        let depth = s.undo_depth();
+        let dirty = s.dirty;
+        assert!(s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "tiny"})).is_err(), "{change}");
+        assert_eq!(serde_json::to_value(&s.doc).unwrap(), doc, "{change}");
+        assert_eq!(s.sel, sel, "{change}");
+        assert_eq!(s.undo_depth(), depth, "{change}");
+        assert_eq!(s.dirty, dirty, "{change}");
+    }
+}
+
+#[test]
+fn thesaurus_manual_lookup_keeps_the_original_target_and_obeys_read_only() {
+    let mut s = Session::new(Document::from_text("small house"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let lookup = s.run("review.thesaurus", &json!({"word": "good"})).unwrap();
+    assert_eq!(lookup["word"], "good");
+    assert_eq!(lookup["target"]["text"], "small");
+    s.run("review.restrict", &json!({"mode": "readOnly"})).unwrap();
+    let depth = s.undo_depth();
+    let lookup = s.run("review.thesaurus", &json!({"word": "good"})).unwrap();
+    let before = serde_json::to_value(&s.doc).unwrap();
+    assert!(s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "fine"})).is_err());
+    assert_eq!(serde_json::to_value(&s.doc).unwrap(), before);
+    assert_eq!(s.undo_depth(), depth);
+    s.run("review.restrict", &json!({"stop": true})).unwrap();
+    let lookup = s.run("review.thesaurus", &json!({"word": "good"})).unwrap();
+    s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "fine"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body).trim_end(), "fine house");
+}
+
+#[test]
+fn thesaurus_has_no_replace_target_for_empty_or_multi_paragraph_selection() {
+    for text in ["", "small\ngood"] {
+        let mut s = Session::new(Document::from_text(text));
+        s.run("select.all", &json!({})).unwrap();
+        let lookup = s.run("review.thesaurus", &json!({"word": "small"})).unwrap();
+        assert!(lookup["target"].is_null());
+        assert!(!lookup["synonyms"].as_array().unwrap().is_empty());
+    }
+}
+
+#[test]
+fn thesaurus_caret_replacement_respects_editable_regions() {
+    let mut s = Session::new(Document::from_text("small good"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    s.run("review.restrict", &json!({"exception": "add"})).unwrap();
+    s.run("review.restrict", &json!({"mode": "readOnly"})).unwrap();
+    // Permission markers occupy OBJ bytes in the paragraph. Derive the editable text's
+    // position after insertion instead of placing a caret inside a marker's UTF-8 encoding.
+    let region = s.doc.perm_ranges().first().unwrap().clone();
+    let inside = wordcraft_doc::Pos { off: region.start.off + 1, ..region.start.clone() };
+    s.run("caret.set", &json!({"pos": inside})).unwrap();
+    let before = serde_json::to_value(&s.doc).unwrap();
+    let caret = s.sel.clone();
+    let depth = s.undo_depth();
+    let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+    assert_eq!(lookup["word"], "small");
+    assert_eq!(lookup["target"]["start"], json!(region.start));
+    assert_eq!(lookup["target"]["end"], json!(region.end));
+    assert!(lookup["synonyms"].as_array().unwrap().contains(&json!("tiny")));
+    s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "tiny"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body).replace(wordcraft_doc::para::OBJ, ""), "tiny good");
+    assert_eq!(s.doc.settings.protection.as_deref(), Some("readOnly"));
+    assert_eq!(s.undo_depth(), depth + 1);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert_eq!(serde_json::to_value(&s.doc).unwrap(), before);
+    assert_eq!(s.sel, caret);
+    assert_eq!(s.undo_depth(), depth);
+
+    // A current receipt and a genuine dictionary result outside the exception must reach
+    // the protected-region post-check, rather than fail for stale or malformed input.
+    s.run("select.text", &json!({"text": "good"})).unwrap();
+    let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+    assert_eq!(lookup["word"], "good");
+    assert!(lookup["synonyms"].as_array().unwrap().contains(&json!("fine")));
+    let target: super::ThesaurusTarget = serde_json::from_value(lookup["target"].clone()).unwrap();
+    assert!(target.is_current(&s));
+    assert!(s.why_disabled("review.replaceSynonym").is_none(), "the command is not refused unconditionally");
+    let doc = serde_json::to_value(&s.doc).unwrap();
+    let sel = s.sel.clone();
+    let dirty = s.dirty;
+    let history = s.run("edit.undoHistory", &json!({})).unwrap();
+    let error = s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": "fine"})).unwrap_err();
+    assert!(matches!(&error, crate::CmdError::Disabled(reason) if reason.contains("only the editable regions")), "{error}");
+    assert_eq!(serde_json::to_value(&s.doc).unwrap(), doc);
+    assert_eq!(s.sel, sel);
+    assert_eq!(s.dirty, dirty);
+    assert_eq!(s.run("edit.undoHistory", &json!({})).unwrap(), history);
+}
+
+#[test]
+fn thesaurus_pane_visibility_is_view_state_and_old_views_default_closed() {
+    let mut s = Session::new(Document::from_text("small house"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let sel = s.sel.clone();
+    for value in [true, false] {
+        s.run("view.thesaurusPane", &json!({"value": value})).unwrap();
+        assert_eq!(s.view.thesaurus_pane, value);
+        assert_eq!(s.sel, sel);
+        assert!(!s.dirty);
+        assert_eq!(s.undo_depth(), 0);
+    }
+    let mut saved = serde_json::to_value(&s.view).unwrap();
+    saved.as_object_mut().unwrap().remove("thesaurusPane");
+    let restored: crate::ViewState = serde_json::from_value(saved).unwrap();
+    assert!(!restored.thesaurus_pane);
+}
+
+#[test]
+fn thesaurus_repeat_uses_the_new_selection_but_explicit_stale_targets_still_fail() {
+    let mut s = Session::new(Document::from_text("small small"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+    let params = json!({"target": lookup["target"], "word": "small", "text": "tiny"});
+    s.run("review.replaceSynonym", &params).unwrap();
+    let repeat = s.last_command.clone();
+    assert_eq!(repeat.as_ref().unwrap().0, "review.replaceSynonymAtSelection");
+    assert!(repeat.as_ref().unwrap().1.get("target").is_none());
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let sel = s.sel.clone();
+    assert!(s.run("review.replaceSynonym", &params).is_err());
+    assert_eq!(s.last_command, repeat, "a stale explicit call cannot poison Repeat");
+    s.run("edit.repeat", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny tiny");
+    assert_eq!(s.undo_depth(), 2);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny small");
+    assert_eq!(s.sel, sel);
+}
+
+#[test]
+fn thesaurus_recorded_macro_replaces_the_current_word_with_one_undo_step() {
+    let mut s = Session::new(Document::from_text("small small"));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    s.run("tools.recordMacro", &json!({"name": "synonym"})).unwrap();
+    let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+    s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": "small", "text": "tiny"})).unwrap();
+    s.run("tools.recordMacro", &json!({})).unwrap();
+    let recorded = s.run("tools.macros", &json!({})).unwrap();
+    assert_eq!(recorded["synonym"].as_array().unwrap().len(), 1);
+    assert_eq!(recorded["synonym"][0]["command"], "review.replaceSynonymAtSelection");
+    assert_eq!(recorded["synonym"][0]["params"], json!({"word": "small", "text": "tiny"}));
+    s.run("select.text", &json!({"text": "small"})).unwrap();
+    let sel = s.sel.clone();
+    s.run("tools.macros", &json!({"run": "synonym"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny tiny");
+    assert_eq!(s.undo_depth(), 2);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny small");
+    assert_eq!(s.sel, sel);
+    let original = s.document_id();
+    s.add_document(Document::from_text("small"));
+    s.run("tools.macros", &json!({"run": "synonym"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny");
+    assert_eq!(s.undo_depth(), 1);
+    s.switch_document(original).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny small", "replay never uses the original document identity");
+}
+
+#[test]
+fn thesaurus_failed_receipts_and_protected_edits_leave_recording_and_repeat_intact() {
+    for protected in [false, true] {
+        let mut s = Session::new(Document::from_text("small good"));
+        if protected {
+            s.run("select.text", &json!({"text": "small"})).unwrap();
+            s.run("review.restrict", &json!({"exception": "add"})).unwrap();
+            s.run("review.restrict", &json!({"mode": "readOnly"})).unwrap();
+            s.run("select.text", &json!({"text": "good"})).unwrap();
+        } else {
+            s.run("select.text", &json!({"text": "small"})).unwrap();
+            s.run("format.bold", &json!({})).unwrap();
+        }
+        let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+        if !protected {
+            s.run("select.text", &json!({"text": "good"})).unwrap();
+        }
+        s.run("tools.recordMacro", &json!({"name": "rejected"})).unwrap();
+        let repeat = s.last_command.clone();
+        let recording = s.recording.clone();
+        let doc = serde_json::to_value(&s.doc).unwrap();
+        let sel = s.sel.clone();
+        let replacement = if protected { "fine" } else { "tiny" };
+        assert!(lookup["synonyms"].as_array().unwrap().contains(&json!(replacement)));
+        let error = s.run("review.replaceSynonym", &json!({"target": lookup["target"], "word": lookup["word"], "text": replacement})).unwrap_err();
+        if protected {
+            assert!(matches!(&error, crate::CmdError::Disabled(reason) if reason.contains("only the editable regions")), "{error}");
+        }
+        assert_eq!(s.last_command, repeat);
+        assert_eq!(s.recording, recording);
+        assert_eq!(serde_json::to_value(&s.doc).unwrap(), doc);
+        assert_eq!(s.sel, sel);
+    }
+}
+
+#[test]
+fn thesaurus_relative_replay_obeys_target_and_protection_rules() {
+    let mut s = Session::new(Document::from_text("small  house"));
+    s.run("caret.set", &json!({"pos": {"block": 0, "off": 2}})).unwrap();
+    let sel = s.sel.clone();
+    let lookup = s.run("review.thesaurus", &json!({})).unwrap();
+    assert!(
+        s.run("review.replaceSynonymAtSelection", &json!({"target": lookup["target"], "word": "small", "text": "tiny"})).is_err(),
+        "the relative command must not ignore an explicit receipt"
+    );
+    s.run("review.replaceSynonymAtSelection", &json!({"word": "small", "text": "tiny"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "tiny  house");
+    assert_eq!(s.undo_depth(), 1);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.sel, sel);
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "small  house");
+    s.run("review.restrict", &json!({"mode": "readOnly"})).unwrap();
+    assert!(s.why_disabled("review.replaceSynonymAtSelection").is_some());
+    let doc = serde_json::to_value(&s.doc).unwrap();
+    assert!(s.run("review.replaceSynonymAtSelection", &json!({"word": "small", "text": "tiny"})).is_err());
+    assert_eq!(serde_json::to_value(&s.doc).unwrap(), doc);
+    let empty = Session::new(Document::new());
+    assert!(empty.why_disabled("review.replaceSynonymAtSelection").is_some());
+}

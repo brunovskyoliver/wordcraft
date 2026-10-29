@@ -235,7 +235,7 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
         ui.horizontal(|ui| {
             ui.label(tl!("Name:"));
             let r = ui.add(egui::TextEdit::singleline(new).desired_width(220.0));
-            renamed = ui.button(tl!("OK")).clicked() || (r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+            renamed = ui.button(tl!("OK")).clicked() || (r.lost_focus() && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter)));
         });
     }
     if renamed && let Some(new) = f.rename.take() {
@@ -246,13 +246,13 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
         ui.add(egui::Label::new(egui::RichText::new(f.message.as_str()).small().color(ui.visuals().error_fg_color)).wrap());
     }
     // Escape while renaming only stops renaming.
-    if f.rename.is_some() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if f.rename.is_some() && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
         f.rename = None;
         return false;
     }
     // Close (Escape too), in a row of its own so the dialog stays as tall as its lists.
     ui.add_space(8.0);
-    let mut close = ui.input(|i| i.key_pressed(egui::Key::Escape));
+    let mut close = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape));
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             close |= ui.add(crate::widgets::primary_button(ui, tl!("Close"))).clicked();

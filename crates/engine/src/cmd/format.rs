@@ -336,13 +336,17 @@ fn font(s: &mut Session, v: &Value) -> CmdResult {
     })
 }
 
-fn size(s: &mut Session, v: &Value) -> CmdResult {
-    let sz = p::req_f32(v, "size")?;
-    if !(1.0..=1638.0).contains(&sz) {
+/// Validate an explicitly requested editing size and normalize it to Word's half points.
+/// Imported and untouched document properties are not changed by this helper.
+pub fn normalize_font_size(size: f32) -> Result<f32, CmdError> {
+    if !(1.0..=1638.0).contains(&size) {
         return Err(CmdError::Params("size must be between 1 and 1638".into()));
     }
-    // Word rounds to half points.
-    let sz = (sz * 2.0).round() / 2.0;
+    Ok((size * 2.0).round() / 2.0)
+}
+
+fn size(s: &mut Session, v: &Value) -> CmdResult {
+    let sz = normalize_font_size(p::req_f32(v, "size")?)?;
     apply(s, &|c| {
         c.size = Some(sz);
         c.size_cs = Some(sz);
@@ -789,6 +793,9 @@ fn char_style(s: &mut Session, v: &Value) -> CmdResult {
 
 fn set(s: &mut Session, v: &Value) -> CmdResult {
     let mut props: CharProps = serde_json::from_value(v.get("props").cloned().unwrap_or(Value::Null)).map_err(|e| CmdError::Params(e.to_string()))?;
+    // Validate every supplied size before applying any other formatting from this command.
+    props.size = props.size.map(normalize_font_size).transpose()?;
+    props.size_cs = props.size_cs.map(normalize_font_size).transpose()?;
     // The font dialog and callers supplying one value format both scripts. Explicit
     // complex-script values still take precedence; importing a DOCX never uses this command.
     props.size_cs = props.size_cs.or(props.size);
@@ -948,6 +955,52 @@ fn enclose(s: &mut Session, v: &Value) -> CmdResult {
 #[cfg(test)]
 mod tests {
     use super::convert;
+
+    #[test]
+    fn explicit_font_sizes_are_validated_before_any_formatting_is_applied() {
+        use crate::Session;
+        use serde_json::json;
+        use wordcraft_doc::Document;
+        for props in [
+            json!({"size": 0, "bold": true}),
+            json!({"size": -1, "italic": true}),
+            json!({"size": 1639, "bold": true}),
+            json!({"size": 1e100, "bold": true}),
+            json!({"size": 12, "sizeCs": 0, "bold": true}),
+            json!({"sizeCs": 1639, "bold": true}),
+        ] {
+            let mut session = Session::new(Document::from_text("Alpha"));
+            session.run("select.all", &json!({})).unwrap();
+            let before = serde_json::to_value(&session.doc).unwrap();
+            let selection = session.sel.clone();
+            assert!(session.run("format.set", &json!({"props": props})).is_err());
+            assert_eq!(serde_json::to_value(&session.doc).unwrap(), before);
+            assert_eq!(session.sel, selection);
+            assert!(!session.dirty && !session.can_undo());
+        }
+        for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            assert!(super::normalize_font_size(invalid).is_err());
+        }
+    }
+
+    #[test]
+    fn formatting_commands_share_half_point_sizes_and_preserve_explicit_script_sizes() {
+        use crate::Session;
+        use serde_json::json;
+        use wordcraft_doc::{Document, Pos};
+        let mut session = Session::new(Document::from_text("Alpha"));
+        session.run("select.all", &json!({})).unwrap();
+        session.run("format.size", &json!({"size": 12.3})).unwrap();
+        assert_eq!(session.run("format.state", &json!({})).unwrap()["size"], json!(12.5));
+        session.run("edit.undo", &json!({})).unwrap();
+        session.run("format.set", &json!({"props": {"size": 12.3, "sizeCs": 20.7, "italic": true}})).unwrap();
+        let props = session.doc.para_at(&Pos::body(0, 0)).unwrap().props_of_char(0);
+        assert_eq!((props.size, props.size_cs, props.italic), (Some(12.5), Some(20.5), Some(true)));
+        session.run("edit.undo", &json!({})).unwrap();
+        let state = session.run("format.state", &json!({})).unwrap();
+        assert_eq!(state["size"], json!(12.0));
+        assert_eq!(state["italic"], json!(false));
+    }
 
     #[test]
     fn case_conversions() {

@@ -1,6 +1,6 @@
 # WordCraft roadmap
 
-> **UI audit update:** 2026-10-29 · UI-AUDIT-001: Read Mode settings use a compact View menu; tall dialogs scroll vertically; short forms retain their size; modal keyboard input is isolated while modeless navigation remains editable. Screenshot scenarios, accessibility regressions and a Linux Zotero peer-race fix pass all eight CI gates (4,617 workspace tests). The audit still has major open defects, including background pointer commands behind Font. Readiness is not re-assessed.
+> **UI audit update:** 2026-10-29 · UI-AUDIT-002: validation, task panes, modal input, compact settings/galleries/Print and accessible transport controls are verified. All eight CI gates passed, with 4,695 workspace tests and 36 final visual/interaction scenarios. The owner requested stopping after cycle 02; the broader Word parity mission remains incomplete. See [audit and remaining gaps](docs/ui-audit.md).
 
 > **Highlight update:** 2026-10-25 · Highlight shortcut toggles the last chosen colour off when the whole selection has it; explicit colour commands remain setters (#4085). Readiness estimates unchanged.
 
@@ -142,6 +142,7 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 
 ## Progress log
 
+- 2026-10-29: UI-AUDIT-002: repaired Font/Hyperlink validation, Selection/Thesaurus presentation, modal ownership, compact customization/Options/galleries/Print and Read Aloud accessibility. Added portable scenario replays and regression coverage. All eight CI gates pass; final replay covers 36 scenarios/442 assertions/148 inspected images. Stop after cycle 02 at owner request; [remaining gaps and exact continuation](docs/ui-audit.md) stay open.
 - 2026-10-29: UI-AUDIT-001: Read Mode settings use a compact View menu; tall dialogs scroll vertically; short forms retain their size; modal keyboard input is isolated while modeless navigation remains editable. Screenshot scenarios, accessibility regressions and a Linux Zotero peer-race fix pass all eight CI gates (4,617 workspace tests). The audit still has major open defects, including background pointer commands behind Font. Readiness is not re-assessed. See [the audit matrix](docs/ui-audit.md).
 
 - 2026-10-22: View › Window › New Window opens a second window on the document (desktop). The windows are titled `Name:1` and `Name:2` and each keeps its own caret, scroll position, zoom and view; edits and Undo are the document's and show in both. Closing one of them asks nothing; the last one asks about unsaved changes, and quitting asks once per document.
@@ -648,6 +649,7 @@ Footer page-table height and body wrapping are corrected. Other pagination gaps 
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | UI-AUDIT-002: scoped validation, panes, modal ownership, responsive layouts and accessibility verified; all eight CI gates pass; owner-requested stop after cycle 02; full parity remains open |
 | 2026-10-29 | minor | UI-AUDIT-001: first repair cycle verified; all eight CI gates pass; state inventory, source review, screenshots and remaining defects recorded; historical readiness estimate not re-assessed |
 | 2026-10-22 | trivial | Progress log: one native window per open document |
 | 2026-10-22 | trivial | Progress log: every open document keeps its own recovery copy |

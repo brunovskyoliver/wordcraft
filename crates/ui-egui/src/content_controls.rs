@@ -161,6 +161,10 @@ fn today() -> (i64, u32, u32) {
 
 /// The open list or calendar (outside the canvas viewport, above everything).
 pub fn popup(app: &mut WordApp, ctx: &egui::Context) {
+    if crate::modal_input::background_blocked(app) {
+        app.controls.popup = None;
+        return;
+    }
     let Some(pop) = app.controls.popup.as_ref() else { return };
     let (at, anchor) = (pop.at.clone(), pop.anchor);
     let Some(r) = app.session.doc.control_at(&at) else {
@@ -247,4 +251,57 @@ fn calendar(ui: &mut Ui, t: &Tokens, month: &mut (i64, u32)) -> Option<u32> {
         }
     });
     picked
+}
+
+#[cfg(test)]
+mod modal_tests {
+    use super::*;
+    use egui_kittest::kittest::Queryable;
+
+    #[test]
+    fn a_new_modal_blocks_a_pressed_populated_dropdown_before_release() {
+        for blocked in [false, true] {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+            app.run("ui.language", json!({"value": "en"})).unwrap();
+            app.run("developer.dropDown", json!({"tag": "choice", "items": ["Alpha choice", "Beta choice"]})).unwrap();
+            app.run("developer.chooseItem", json!({"control": "choice", "index": 0})).unwrap();
+            let range = app.session.doc.control_ranges(wordcraft_doc::StoryRef::Body).into_iter().next().unwrap();
+            let at = range.content_start();
+            app.session.sel = wordcraft_engine::Selection::caret(at.clone());
+            app.controls.popup = Some(Popup { at, anchor: Rect::from_min_size(pos2(100.0, 300.0), vec2(180.0, 20.0)), month: (2026, 10) });
+            let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(8);
+            let item = h.get_by_label("Beta choice").rect().center();
+            let before = serde_json::to_value(&h.state().session.doc).unwrap();
+            let selection = h.state().session.sel.clone();
+            let depth = h.state().session.undo_depth();
+            h.hover_at(item);
+            h.event(egui::Event::PointerButton { pos: item, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE });
+            h.run_steps(1);
+            if blocked {
+                h.state_mut().run("ui.dialog", json!({"name": "font"})).unwrap();
+            }
+            // Release is the first frame with Font open, before its modal layer is remembered.
+            h.event(egui::Event::PointerButton { pos: item, button: egui::PointerButton::Primary, pressed: false, modifiers: egui::Modifiers::NONE });
+            h.run_steps(8);
+            assert!(!h.state().controls.popup_open());
+            if blocked {
+                assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+                assert_eq!(h.state().session.sel, selection);
+                assert_eq!(h.state().session.undo_depth(), depth);
+                assert!(matches!(h.state().dialog, Some(crate::dialogs::Dialog::Font { .. })));
+            } else {
+                let range = h.state().session.doc.control_ranges(wordcraft_doc::StoryRef::Body).into_iter().next().unwrap();
+                assert_eq!(h.state().session.doc.control_text(&range), "Beta choice", "the positive control proves the pointer can choose this item");
+                assert_eq!(h.state().session.undo_depth(), depth + 1);
+            }
+        }
+    }
 }

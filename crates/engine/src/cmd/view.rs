@@ -127,6 +127,14 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"value"?: bool}"#)
         .pure(),
+        CommandSpec::new("view.selectionPane", "Selection Pane Visibility", "Layout › Arrange", |s, v| {
+            toggle(s, v, |x| &mut x.selection_pane)
+        })
+        .params(r#"{"value"?: bool}"#)
+        .pure().automation_only(),
+        CommandSpec::new("view.thesaurusPane", "Thesaurus Pane Visibility", "Review › Proofing", |s, v| {
+            toggle(s, v, |x| &mut x.thesaurus_pane)
+        }).params(r#"{"value"?: bool}"#).pure().automation_only(),
         CommandSpec::new("view.newWindow", "New Window", "View › Window", |s, _| {
             s.push_ui_request(json!({"open": "newWindow"}));
             sel_result(s)
@@ -315,4 +323,33 @@ fn switch_windows(s: &mut Session, v: &Value) -> CmdResult {
         s.activate(id)?;
     }
     Ok(json!({"documents": s.documents()}))
+}
+
+#[cfg(test)]
+mod selection_pane_tests {
+    use super::*;
+    use wordcraft_doc::{Document, StoryRef};
+
+    #[test]
+    fn selection_pane_visibility_is_view_state_only() {
+        let mut s = Session::new(Document::new());
+        s.run("text.insert", &json!({"text": "keep me"})).unwrap();
+        let selection = s.sel.clone();
+        let dirty = s.dirty;
+        let mode = s.view.mode;
+        for (params, expected) in [(json!({"value": true}), true), (json!({}), false), (json!({"value": true}), true)] {
+            assert_eq!(s.run("view.selectionPane", &params).unwrap()["value"], expected);
+            assert_eq!(s.view.selection_pane, expected);
+            assert_eq!(s.sel, selection);
+            assert_eq!(s.dirty, dirty);
+            assert_eq!(s.view.mode, mode);
+        }
+        s.run("edit.undo", &json!({})).unwrap();
+        assert!(s.doc.plain_text(StoryRef::Body).trim().is_empty(), "pane toggles do not consume undo");
+        let mut saved = serde_json::to_value(&s.view).unwrap();
+        assert_eq!(saved["selectionPane"], true);
+        saved.as_object_mut().unwrap().remove("selectionPane");
+        let restored: crate::ViewState = serde_json::from_value(saved).unwrap();
+        assert!(!restored.selection_pane, "older view state defaults to a closed pane");
+    }
 }

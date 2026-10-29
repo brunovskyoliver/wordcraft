@@ -67,9 +67,24 @@ pub(super) fn east_asian_char(c: char) -> bool {
 /// The Font dialog's OK: one formatting step that sets only the properties the user changed, so
 /// formatting the dialog can't show or left alone stays as it is. Fonts are set by their stored
 /// (English) names, the Latin font for Persian/Arabic text too (as `format.font`).
-pub(super) fn apply_font(app: &mut WordApp, d: &Dialog) {
-    let Dialog::Font { start, .. } = d else { return };
-    let mut changed: serde_json::Map<String, Value> = font_props(d).into_iter().filter(|(k, v)| start.get(k) != Some(v)).collect();
+pub(super) fn apply_font(app: &mut WordApp, d: &Dialog) -> Result<(), String> {
+    let Dialog::Font { start, size, .. } = d else { return Ok(()) };
+    let mut props = font_props(d);
+    if size.trim().is_empty() {
+        // A mixed-size selection starts blank. Leave each run's size alone until the user
+        // supplies one; clearing an ordinary size is not a valid replacement value.
+        if start.contains_key("size") {
+            return Err(tl!("Enter a valid font size.").to_string());
+        }
+    } else {
+        let value = size.trim().parse::<f32>().map_err(|_| tl!("Enter a valid font size.").to_string())?;
+        let value = wordcraft_engine::cmd::format::normalize_font_size(value).map_err(|e| e.to_string())?;
+        // Opening and accepting a dialog must not round an untouched imported size.
+        if props.get("size") != start.get("size") {
+            props.insert("size".into(), json!(value));
+        }
+    }
+    let mut changed: serde_json::Map<String, Value> = props.into_iter().filter(|(k, v)| start.get(k) != Some(v)).collect();
     if let Some(f) = changed.get("font").and_then(Value::as_str).map(str::to_string) {
         let f = app.previews.font_stored(&f);
         changed.insert("font".into(), json!(f));
@@ -79,6 +94,7 @@ pub(super) fn apply_font(app: &mut WordApp, d: &Dialog) {
         changed.insert("fontEa".into(), json!(app.previews.font_stored(&f)));
     }
     if !changed.is_empty() {
-        let _ = app.run("format.set", json!({"props": changed}));
+        app.run("format.set", json!({"props": changed}))?;
     }
+    Ok(())
 }

@@ -305,7 +305,10 @@ pub fn tabs(app: &mut WordApp, ui: &mut Ui, f: &mut TabsForm) -> bool {
                 }
                 if let Some(i) = remove {
                     f.remove_stop(i);
-                } else if f.selected.is_some() && ui.memory(|m| m.focused().is_none()) && ui.input(|inp| inp.key_pressed(egui::Key::Delete)) {
+                } else if f.selected.is_some()
+                    && ui.memory(|m| m.focused().is_none())
+                    && crate::modal_input::key_input(ui, |inp| inp.key_pressed(egui::Key::Delete))
+                {
                     // Delete clears the selected stop when nothing is being typed.
                     if let Some(i) = f.selected {
                         f.remove_stop(i);

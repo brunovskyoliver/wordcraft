@@ -1,0 +1,29 @@
+{"width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "de"}}, "expect": {"result": {"language": "de", "effective": "de"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}, "expect": {"result": {"auto": false, "percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": true, "page": "home"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "home"}}}}
+{"shot": "layout-gallery-de1024x768-scale150--home-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "home"}}}}
+{"shot": "layout-gallery-de1024x768-scale150--home-bottom.png"}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": true, "page": "new"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "new"}}}}
+{"shot": "layout-gallery-de1024x768-scale150--new-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "new"}}}}
+{"shot": "layout-gallery-de1024x768-scale150--new-bottom.png"}
+{"method": "ui.wheel", "params": {"x": 100, "y": 220, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "new"}}}}
+{"shot": "layout-gallery-de1024x768-scale150--sidebar-bottom.png"}

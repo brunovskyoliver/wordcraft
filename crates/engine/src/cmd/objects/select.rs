@@ -260,22 +260,37 @@ pub(crate) fn all_objects(s: &Session) -> Vec<(Pos, InlineObject)> {
     v
 }
 
+/// An object listed in the Selection Pane, in the same order as `select.objects` indices.
+#[derive(serde::Serialize)]
+pub struct SelectionObject {
+    pub index: usize,
+    pub kind: &'static str,
+    pub name: String,
+    pub pos: Pos,
+    pub size: (f32, f32),
+    pub hidden: bool,
+}
+
+/// Read the drawing objects in the document body without dispatching a command. Rendering
+/// a pane must not consume transient undo or input-method state in `Session::run`.
+pub fn selection_objects(s: &Session) -> Vec<SelectionObject> {
+    all_objects(s)
+        .into_iter()
+        .enumerate()
+        .map(|(i, (pos, o))| {
+            let (kind, name) = match &o {
+                InlineObject::Image { alt, .. } => ("picture", if alt.is_empty() { format!("Picture {}", i + 1) } else { alt.clone() }),
+                InlineObject::Shape { kind, .. } => ("shape", format!("{kind:?} {}", i + 1)),
+                InlineObject::Graphic { graphic, .. } => ("graphic", format!("{:?} {}", graphic.kind, i + 1)),
+                InlineObject::Group { .. } => ("group", format!("Group {}", i + 1)),
+                _ => ("object", format!("Object {}", i + 1)),
+            };
+            let hidden = o.frame().is_some_and(|(_, _, f)| f.hidden);
+            SelectionObject { index: i, kind, name, pos, size: obj_size(&o), hidden }
+        })
+        .collect()
+}
+
 pub(super) fn objects_list(s: &mut Session, _: &Value) -> CmdResult {
-    Ok(Value::Array(
-        all_objects(s)
-            .into_iter()
-            .enumerate()
-            .map(|(i, (pos, o))| {
-                let (kind, name) = match &o {
-                    InlineObject::Image { alt, .. } => ("picture", if alt.is_empty() { format!("Picture {}", i + 1) } else { alt.clone() }),
-                    InlineObject::Shape { kind, .. } => ("shape", format!("{kind:?} {}", i + 1)),
-                    InlineObject::Graphic { graphic, .. } => ("graphic", format!("{:?} {}", graphic.kind, i + 1)),
-                    InlineObject::Group { .. } => ("group", format!("Group {}", i + 1)),
-                    _ => ("object", format!("Object {}", i + 1)),
-                };
-                let hidden = o.frame().is_some_and(|(_, _, f)| f.hidden);
-                json!({"index": i, "kind": kind, "name": name, "pos": crate::cmd::pos_json(&pos), "size": obj_size(&o), "hidden": hidden})
-            })
-            .collect(),
-    ))
+    Ok(json!(selection_objects(s)))
 }

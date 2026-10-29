@@ -84,8 +84,12 @@ impl Session {
         if spec.mutates && self.doc.settings.protection.as_deref() == Some("trackedChanges") {
             self.doc.settings.track_changes = true;
         }
+        // Receipt-bound replacement must succeed before it can become a relative replay step.
+        // Keeping its original receipt would make every later Repeat or macro invocation stale.
+        let defer_synonym_replay = id == "review.replaceSynonym";
         // Macro recording and Repeat.
-        let record = !matches!(id, "tools.recordMacro" | "tools.macros" | "edit.undo" | "edit.redo" | "edit.repeat")
+        let record = !defer_synonym_replay
+            && !matches!(id, "tools.recordMacro" | "tools.macros" | "edit.undo" | "edit.redo" | "edit.repeat")
             && (spec.mutates || id.starts_with("caret.") || id.starts_with("select."));
         // A password never lands in a recorded macro or Repeat.
         let kept = || {
@@ -98,7 +102,7 @@ impl Session {
         if record && let Some((_, steps)) = self.recording.as_mut() {
             steps.push((id.to_string(), kept()));
         }
-        if spec.mutates && !matches!(id, "edit.undo" | "edit.redo" | "edit.repeat") {
+        if !defer_synonym_replay && spec.mutates && !matches!(id, "edit.undo" | "edit.redo" | "edit.repeat") {
             self.last_command = Some((id.to_string(), kept()));
         }
         // Typing, caret movement and selection outside the equation commands leave the equation.
@@ -272,7 +276,21 @@ impl Session {
                 self.status = e.to_string();
             }
         }
+        self.record_synonym_replay(defer_synonym_replay && result.is_ok(), params);
         result
+    }
+
+    /// Record only a successful replacement after the protected-region post-check. A refused
+    /// receipt must not replace the previous Repeat action or leave a macro step behind.
+    fn record_synonym_replay(&mut self, succeeded: bool, params: &Value) {
+        if !succeeded {
+            return;
+        }
+        let replay = ("review.replaceSynonymAtSelection".to_string(), serde_json::json!({"word": params.get("word"), "text": params.get("text")}));
+        if let Some((_, steps)) = self.recording.as_mut() {
+            steps.push(replay.clone());
+        }
+        self.last_command = Some(replay);
     }
 
     fn finish_success(&mut self, context: SuccessContext<'_>) {

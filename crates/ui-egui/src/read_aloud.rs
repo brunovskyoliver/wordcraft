@@ -5,7 +5,7 @@
 //! While reading, the caret follows the sentence being spoken (so stopping leaves it where
 //! reading stopped) and the sentence is highlighted on the page.
 
-use egui::{Color32, Rect, Sense, Ui, vec2};
+use egui::{Color32, Rect, Ui, vec2};
 use serde_json::json;
 use wordcraft_engine::speech::{MAX_RATE, MIN_RATE, State};
 
@@ -74,6 +74,7 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
     let mut run: Option<(&str, serde_json::Value)> = None;
     let right_top = app.canvas.canvas_rect.map_or(ctx.content_rect().right_top() + vec2(-24.0, 160.0), |r| r.right_top() + vec2(-24.0, 16.0));
     let window = egui::Window::new(tl!("Read Aloud"))
+        .enabled(!crate::modal_input::background_blocked(app))
         .id(egui::Id::unique("read-aloud-player"))
         .collapsible(false)
         .resizable(false)
@@ -160,13 +161,131 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
 
 /// An icon button; returns whether it was clicked.
 fn button(ui: &mut Ui, t: &Tokens, icon: &str, tip: &str, enabled: bool) -> bool {
-    let (rect, resp) = ui.allocate_exact_size(vec2(30.0, 30.0), if enabled { Sense::click() } else { Sense::hover() });
+    // A real egui button supplies keyboard activation, disabled focus behavior and a
+    // visible focus indicator. The original icon is painted inside the same 30-point hit box.
+    let on = enabled && ui.is_enabled();
+    let resp = ui.add_enabled(enabled, egui::Button::new("").frame(true).frame_when_inactive(false).min_size(vec2(30.0, 30.0)));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, on, tip));
     let resp = resp.on_hover_text(tip);
-    if enabled && resp.hovered() {
-        ui.painter().rect_filled(rect, 4.0, if resp.is_pointer_button_down_on() { t.pressed } else { t.hover });
+    let c = if on { t.icon } else { t.text_disabled };
+    let r = Rect::from_center_size(resp.rect.center(), vec2(20.0, 20.0));
+    crate::icons::paint(ui.painter(), r, icon, c, if on { t.accent } else { Color32::TRANSPARENT });
+    on && resp.clicked()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::{NodeT, Queryable};
+    use wordcraft_engine::speech::Backend;
+
+    fn player() -> egui_kittest::Harness<'static, WordApp> {
+        let mut app = WordApp::new(
+            wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("First sentence. Second sentence. Third sentence.")),
+            crate::Services::default(),
+        );
+        // Hold is the engine's silent backend: no speech program, service or network.
+        app.session.read_aloud.backend = Backend::Hold;
+        app.run("ui.language", json!({"value": "en"})).unwrap();
+        app.run("ui.interfaceSize", json!({"percent": 100})).unwrap();
+        app.run("review.readAloud", json!({})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(8);
+        h
     }
-    let c = if enabled { t.icon } else { t.text_disabled };
-    let r = Rect::from_center_size(rect.center(), vec2(20.0, 20.0));
-    crate::icons::paint(ui.painter(), r, icon, c, if enabled { t.accent } else { Color32::TRANSPARENT });
-    enabled && resp.clicked()
+
+    fn activate(h: &mut egui_kittest::Harness<'_, WordApp>, label: &str, key: egui::Key) {
+        h.get_by_role_and_label(Role::Button, label).focus();
+        h.run_steps(4);
+        assert!(h.get_by_role_and_label(Role::Button, label).is_focused(), "{label} accepts keyboard focus");
+        h.key_press(key);
+        h.run_steps(8);
+    }
+
+    #[test]
+    fn transport_buttons_expose_names_bounds_and_boundary_disabled_states() {
+        let mut h = player();
+        assert_eq!(h.state().session.read_aloud.progress(), (0, 3));
+        for (name, disabled) in [("Previous sentence", true), ("Pause", false), ("Next sentence", false), ("Stop", false)] {
+            let button = h.get_by_role_and_label(Role::Button, name);
+            assert_eq!(button.accesskit_node().is_disabled(), disabled, "{name}");
+            assert_eq!(button.rect().size(), vec2(30.0, 30.0), "the transport keeps its original hit box");
+        }
+        h.state_mut().execute("readAloud.next", json!({})).unwrap();
+        h.state_mut().execute("readAloud.next", json!({})).unwrap();
+        h.run_steps(4);
+        assert_eq!(h.state().session.read_aloud.progress(), (2, 3));
+        assert!(!h.get_by_role_and_label(Role::Button, "Previous sentence").accesskit_node().is_disabled());
+        assert!(h.get_by_role_and_label(Role::Button, "Next sentence").accesskit_node().is_disabled());
+        h.state_mut().execute("readAloud.playPause", json!({})).unwrap();
+        h.run_steps(4);
+        assert!(h.query_by_role_and_label(Role::Button, "Pause").is_none());
+        assert!(h.query_by_role_and_label(Role::Button, "Play").is_some());
+    }
+
+    #[test]
+    fn focused_transport_space_and_enter_dispatch_the_player_commands() {
+        for key in [egui::Key::Space, egui::Key::Enter] {
+            let mut h = player();
+            let doc = serde_json::to_value(&h.state().session.doc).unwrap();
+            activate(&mut h, "Pause", key);
+            assert_eq!(h.state().session.read_aloud.state(), State::Paused);
+            activate(&mut h, "Play", key);
+            assert_eq!(h.state().session.read_aloud.state(), State::Playing);
+            activate(&mut h, "Next sentence", key);
+            assert_eq!(h.state().session.read_aloud.progress(), (1, 3));
+            activate(&mut h, "Previous sentence", key);
+            assert_eq!(h.state().session.read_aloud.progress(), (0, 3));
+            activate(&mut h, "Stop", key);
+            assert!(!h.state().session.read_aloud.open);
+            assert_eq!(h.state().session.read_aloud.state(), State::Stopped);
+            assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), doc, "{key:?} must never type into the document");
+            assert!(!h.state().session.dirty);
+            assert_eq!(h.state().session.undo_depth(), 0);
+        }
+    }
+
+    #[test]
+    fn tab_navigation_moves_between_enabled_transport_buttons() {
+        let mut h = player();
+        h.get_by_role_and_label(Role::Button, "Pause").focus();
+        h.run_steps(4);
+        h.key_press(egui::Key::Tab);
+        h.run_steps(4);
+        assert!(h.get_by_role_and_label(Role::Button, "Next sentence").is_focused());
+        h.key_press(egui::Key::Tab);
+        h.run_steps(4);
+        assert!(h.get_by_role_and_label(Role::Button, "Stop").is_focused());
+        h.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::Tab);
+        h.run_steps(4);
+        assert!(h.get_by_role_and_label(Role::Button, "Next sentence").is_focused());
+        h.state_mut().execute("readAloud.next", json!({})).unwrap();
+        h.state_mut().execute("readAloud.next", json!({})).unwrap();
+        h.run_steps(4);
+        h.get_by_role_and_label(Role::Button, "Pause").focus();
+        h.run_steps(4);
+        h.key_press(egui::Key::Tab);
+        h.run_steps(4);
+        assert!(h.get_by_role_and_label(Role::Button, "Stop").is_focused(), "Tab skips Next at the final sentence");
+    }
+
+    #[test]
+    fn a_modal_disables_every_named_transport_control() {
+        let mut h = player();
+        h.state_mut().run("ui.dialog", json!({"name": "font"})).unwrap();
+        h.run_steps(8);
+        for name in ["Previous sentence", "Pause", "Next sentence", "Stop"] {
+            assert!(h.get_by_role_and_label(Role::Button, name).accesskit_node().is_disabled(), "{name} follows its disabled player window");
+        }
+        assert!(h.state().session.read_aloud.open);
+        assert_eq!(h.state().session.read_aloud.state(), State::Playing);
+    }
 }

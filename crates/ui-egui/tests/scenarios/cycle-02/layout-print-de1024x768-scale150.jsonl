@@ -1,0 +1,13 @@
+{"width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "de"}}, "expect": {"result": {"language": "de", "effective": "de"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}, "expect": {"result": {"auto": false, "percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.print", "params": {}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "print"}}}}
+{"shot": "layout-print-de1024x768-scale150--initial.png"}
+{"method": "ui.wheel", "params": {"x": 320, "y": 180, "dy": -5000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "print"}}}}
+{"shot": "layout-print-de1024x768-scale150--settings-scrolled.png"}

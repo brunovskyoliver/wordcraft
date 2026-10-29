@@ -1,0 +1,25 @@
+{"width": 640, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": true, "page": "home"}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"backstage": true, "backstagePage": "home"}}}}
+{"shot": "layout-boundary-640x600-scale150--home.png"}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": true, "page": "new"}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"backstage": true, "backstagePage": "new"}}}}
+{"shot": "layout-boundary-640x600-scale150--new.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "general"}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"backstage": true, "backstagePage": "options"}}}}
+{"shot": "layout-boundary-640x600-scale150--options-general.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "advanced"}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"backstage": true, "backstagePage": "options"}}}}
+{"shot": "layout-boundary-640x600-scale150--options-advanced.png"}
+{"method": "engine.execute", "params": {"command": "file.print", "params": {}}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"backstage": true, "backstagePage": "print"}}}}
+{"shot": "layout-boundary-640x600-scale150--print.png"}

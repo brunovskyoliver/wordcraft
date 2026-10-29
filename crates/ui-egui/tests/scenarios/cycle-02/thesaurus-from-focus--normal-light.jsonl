@@ -1,0 +1,43 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "The small house."}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "view.focus", "params": {"value": true}}}
+{"method": "ui.key", "params": {"key": "F7", "shift": true}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"thesaurusPane": true, "focusMode": false, "fullScreenView": false}, "focused": false}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "small", "anchor": {"path": [0], "story": "body", "off": 4}, "focus": {"path": [0], "story": "body", "off": 9}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"shot": "thesaurus-from-focus--normal-light--01-visible-and-focused.png"}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "good"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"focused": true}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The fine house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "small", "anchor": {"path": [0], "story": "body", "off": 4}, "focus": {"path": [0], "story": "body", "off": 9}}}}
+{"method": "ui.key", "params": {"key": "ArrowRight"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"focused": true}}}
+{"method": "engine.execute", "params": {"command": "view.focus", "params": {"value": true}}}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"focusMode": false, "fullScreenView": false}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}

@@ -314,6 +314,8 @@ pub(crate) fn show(app: &mut WordApp, ctx: &egui::Context) {
         .collapsible(false)
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, vec2(0.0, -20.0));
+    let window =
+        crate::modal_input::window(ctx, egui::Id::unique("builtin_file_browser"), window).enabled(app.colors.is_none() && !app.zotero.alert_open());
     let shown = crate::window_close::window(ctx, window).show(ctx, |ui| {
         ui.set_width(620.0);
         done = body(ui, &mut b, &t);
@@ -349,7 +351,7 @@ fn body(ui: &mut Ui, b: &mut FileBrowser, t: &Tokens) -> Option<Option<PathBuf>>
             b.navigate(h);
         }
         let r = ui.add(egui::TextEdit::singleline(&mut b.location).desired_width(f32::INFINITY)).accessible_name(tl!("Folder path"));
-        if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        if r.lost_focus() && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter)) {
             location_done = true;
             let typed = b.location.clone();
             if let Some(dir) = resolve(&b.dir, &typed) {
@@ -456,8 +458,8 @@ fn body(ui: &mut Ui, b: &mut FileBrowser, t: &Tokens) -> Option<Option<PathBuf>>
         b.navigate(b.dir.clone());
     }
     ui.add_space(8.0);
-    let mut cancel = ui.input(|i| i.key_pressed(egui::Key::Escape));
-    let enter = !location_done && ui.input(|i| i.key_pressed(egui::Key::Enter));
+    let mut cancel = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape));
+    let enter = !location_done && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter));
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let (ok, cancelb) =

@@ -53,11 +53,14 @@ pub(crate) fn show(ctx: &egui::Context, window: &Response, t: &Tokens) -> bool {
     let stroke = style.visuals.window_stroke.width;
     let rect = close_rect(window.rect, stroke, geometry(ctx));
     let id = window.layer_id.id.with("close_box");
-    let ui = Ui::new(ctx.clone(), id, UiBuilder::new().layer_id(window.layer_id).max_rect(rect));
+    let mut ui = Ui::new(ctx.clone(), id, UiBuilder::new().layer_id(window.layer_id).max_rect(rect));
+    if !window.enabled() {
+        ui.disable();
+    }
     // Pointer-only, like a caption button: Tab never lands on it.
     let r = ui.interact(rect, id.with("hit"), Sense::CLICK | Sense::DRAG);
     let label = tl!("Close");
-    r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
+    r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
     let r = r.on_hover_text(label);
     let down = r.is_pointer_button_down_on() && r.contains_pointer();
     let hot = down || r.hovered();

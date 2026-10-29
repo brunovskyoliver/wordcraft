@@ -72,7 +72,7 @@ fn rename_document_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> boo
     };
     let label = ui.label(tl!("Document name"));
     let r = ui.add(egui::TextEdit::singleline(name).desired_width(320.0).char_limit(200)).labelled_by(label.id);
-    if *focus {
+    if *focus && crate::modal_input::keys_enabled(ui) {
         r.request_focus();
         *focus = false;
     }
@@ -101,6 +101,7 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         font_ea,
         asian,
         size,
+        message,
         bold,
         italic,
         underline,
@@ -136,6 +137,7 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     if *strike {
         fmt.strikethrough = egui::Stroke::new(1.0, preview_color);
     }
+    let mut size_response = None;
     egui::Grid::new("fontdlg").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         // Word's two font boxes when East Asian text is in use: the Latin text font and
         // the Asian text font, each with its own list (type to find a font).
@@ -167,8 +169,17 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         }
         ui.end_row();
         let size_label = ui.label(tl!("Size:"));
-        ui.text_edit_singleline(size).labelled_by(size_label.id);
+        let response = ui.text_edit_singleline(size).labelled_by(size_label.id);
+        if response.changed() {
+            message.clear();
+        }
+        size_response = Some(response);
         ui.end_row();
+        if !message.is_empty() {
+            ui.label("");
+            ui.add(egui::Label::new(egui::RichText::new(message.as_str()).color(ui.visuals().error_fg_color)).wrap());
+            ui.end_row();
+        }
         ui.label(tl!("Font color:"));
         let theme = app.session.doc.settings.theme_colors.clone();
         color_field(ui, &theme, color, "Automatic", "auto");
@@ -203,8 +214,12 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         ui.checkbox(underline, tl!("Underline"));
         ui.checkbox(strike, tl!("Strikethrough"));
         ui.end_row();
-        ui.checkbox(sup, tl!("Superscript"));
-        ui.checkbox(sub, tl!("Subscript"));
+        if ui.checkbox(sup, tl!("Superscript")).changed() && *sup {
+            *sub = false;
+        }
+        if ui.checkbox(sub, tl!("Subscript")).changed() && *sub {
+            *sup = false;
+        }
         ui.end_row();
         ui.checkbox(small_caps, tl!("Small caps"));
         ui.checkbox(caps, tl!("All caps"));
@@ -220,10 +235,24 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     job.wrap.max_width = ui.available_width().min(400.0);
     ui.label(job);
     let (ok, cancel) = buttons(ui, tl!("OK"));
-    if ok {
-        apply_font(app, d);
+    if cancel {
+        return true;
     }
-    ok || cancel
+    if ok {
+        match apply_font(app, d) {
+            Ok(()) => return true,
+            Err(error) => {
+                if let Dialog::Font { message, .. } = d {
+                    *message = error;
+                }
+                if let Some(response) = size_response {
+                    response.request_focus();
+                    response.scroll_to_me(None);
+                }
+            }
+        }
+    }
+    false
 }
 
 fn paragraph_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -367,7 +396,7 @@ fn find_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.horizontal(|ui| {
         let find_label = ui.label(tl!("Find what:"));
         let r = ui.add(egui::TextEdit::singleline(query).id(egui::Id::unique("find_what")).desired_width(240.0)).labelled_by(find_label.id);
-        if std::mem::take(focus) {
+        if crate::modal_input::keys_enabled(ui) && std::mem::take(focus) {
             r.request_focus();
         }
         if r.gained_focus() {
@@ -453,14 +482,14 @@ fn find_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 let _ = app.run("edit.replace", opts.clone());
             }
         }
-        if ui.button(tl!("Find Next")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        if ui.button(tl!("Find Next")).clicked() || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter)) {
             // One step per click: `edit.find` would select a match itself, and the step after it skip one.
             match app.run("edit.findNext", opts.clone()) {
                 Ok(r) => *message = format!("Match {} of {}", r["index"].as_u64().unwrap_or(0) + 1, r["count"]),
                 Err(e) => *message = e,
             }
         }
-        if ui.button(tl!("Close")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+        if ui.button(tl!("Close")).clicked() || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
             close = true;
         }
     });
@@ -668,7 +697,7 @@ fn page_setup_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
 }
 
 fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
-    let Dialog::Link { url, text, place, targets, pick, focus } = d else {
+    let Dialog::Link { url, text, message, place, targets, pick, focus } = d else {
         return false;
     };
     // Word's "Link to:" choices; the places are read once, when that tab is first shown.
@@ -681,13 +710,17 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     });
     ui.add_space(4.0);
     egui::Grid::new("lnk").num_columns(2).show(ui, |ui| {
-        ui.label(tl!("Text to display:"));
-        ui.text_edit_singleline(text);
+        let label = ui.label(tl!("Text to display:"));
+        ui.text_edit_singleline(text).labelled_by(label.id);
         ui.end_row();
         if !*place {
-            ui.label(tl!("Address:"));
+            let label = ui.label(tl!("Address:"));
             let mut out = egui::TextEdit::singleline(url).id(egui::Id::unique("link_address")).show(ui);
-            if std::mem::take(focus) {
+            out.response.response = out.response.response.labelled_by(label.id);
+            if out.response.changed() {
+                message.clear();
+            }
+            if crate::modal_input::keys_enabled(ui) && std::mem::take(focus) {
                 out.response.request_focus();
                 let all = egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(url.chars().count()));
                 out.state.cursor.set_char_range(Some(all));
@@ -743,19 +776,36 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             *pick = Some(c);
         }
     }
+    if !message.is_empty() {
+        ui.colored_label(ui.visuals().error_fg_color, message.as_str());
+    }
     let (ok, cancel) = buttons(ui, tl!("OK"));
-    if ok {
-        if *place {
-            let Some((mut params, _)) = pick.clone() else { return false };
-            if !text.is_empty() {
-                params["text"] = json!(text);
-            }
-            let _ = app.run("insert.link", params);
-        } else {
-            let _ = app.run("insert.link", json!({"url": url, "text": text}));
+    if cancel {
+        return true;
+    }
+    if !ok {
+        return false;
+    }
+    let params = if *place {
+        let Some((mut params, _)) = pick.clone() else {
+            *message = tl!("Choose a place in this document.").to_string();
+            return false;
+        };
+        if !text.is_empty() {
+            params["text"] = json!(text);
+        }
+        params
+    } else {
+        json!({"url": url, "text": text})
+    };
+    match app.run("insert.link", params) {
+        Ok(_) => true,
+        Err(error) => {
+            *message = error;
+            *focus = !*place;
+            false
         }
     }
-    ok || cancel
 }
 
 fn word_count_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -862,7 +912,7 @@ fn phonetic_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         let ruby_label = ui.label(tl!("Ruby text:"));
         let r = ui.text_edit_singleline(ruby).labelled_by(ruby_label.id);
         // Typing goes to the Ruby text box, not the selected text in the document (#3914).
-        if std::mem::take(focus) {
+        if crate::modal_input::keys_enabled(ui) && std::mem::take(focus) {
             r.request_focus();
         }
         ui.end_row();
@@ -987,13 +1037,13 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     let Dialog::Commands { query, swallow } = d else {
         return false;
     };
-    if *swallow {
+    if *swallow && crate::modal_input::keys_enabled(ui) {
         ui.ctx().input_mut(|i| i.events.retain(|e| !swallow_shortcut_text(swallow, e)));
     }
     let r = ui.add(egui::TextEdit::singleline(query).hint_text(tl!("Type a command, e.g. \"insert table\"")).desired_width(380.0));
     // Only when it lacks focus: `request_focus` always interrupts IME, and on X11 that
     // recreates the XIM context, so asking every frame left fcitx taking no keys (#2986).
-    if !r.has_focus() {
+    if !r.has_focus() && crate::modal_input::keys_enabled(ui) {
         r.request_focus();
     }
     let reg = app.session.registry.clone();
@@ -1005,7 +1055,7 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         reg.all().iter().filter(|c| command_matches(c, query)).collect()
     };
     hits.truncate(14);
-    let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
+    let enter = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter));
     let mut run: Option<&str> = enter.then(|| hits.first().map(|c| c.id)).flatten();
     for c in &hits {
         let sc = crate::widgets::shortcut_text(app, c.id);
@@ -1027,7 +1077,7 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     } else if find {
         find_in_navigation_pane(app, ui.ctx(), &text);
     }
-    run.is_some() || find || ui.input(|i| i.key_pressed(egui::Key::Escape))
+    run.is_some() || find || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape))
 }
 
 fn paste_special_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -1110,7 +1160,7 @@ fn discard_recovery_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bo
         .horizontal(|ui| {
             let cancel = ui.button(tl!("Cancel"));
             let discard = ui.button(tl!("Discard"));
-            if cancel.clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            if cancel.clicked() || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
                 Some("cancel")
             } else if discard.clicked() {
                 Some("discard")
@@ -1157,18 +1207,19 @@ fn save_changes_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     // buttons, shown as Save, Don't Save, Cancel. The focus is taken from whatever held it,
     // not only from nothing: the page keeps it while typing and claims Tab and the arrows
     // (#1597).
-    if !buttons.iter().any(|(b, _)| b.has_focus())
+    if crate::modal_input::keys_enabled(ui)
+        && !buttons.iter().any(|(b, _)| b.has_focus())
         && let Some((save, _)) = buttons.get(2)
     {
         save.request_focus();
     }
     // Enter clicks the focused button; it means Save only when none of them has focus.
     let focused = buttons.iter().any(|(b, _)| b.has_focus());
-    let answer = if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+    let answer = if crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
         Some("cancel")
     } else if let Some((_, a)) = buttons.iter().find(|(b, _)| b.clicked()) {
         Some(*a)
-    } else if !focused && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+    } else if !focused && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter)) {
         Some("save")
     } else {
         None
@@ -1218,7 +1269,7 @@ fn password_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.horizontal(|ui| {
         ui.label(tl!("Password:"));
         let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0));
-        if password.is_empty() && !r.has_focus() {
+        if password.is_empty() && !r.has_focus() && crate::modal_input::keys_enabled(ui) {
             r.request_focus();
         }
     });
@@ -1256,7 +1307,7 @@ fn encrypt_password_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bo
     egui::Grid::new("encrypt_password").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Password:"));
         let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0));
-        if password.is_empty() && confirm.is_empty() && !r.has_focus() {
+        if password.is_empty() && confirm.is_empty() && !r.has_focus() && crate::modal_input::keys_enabled(ui) {
             r.request_focus();
         }
         ui.end_row();
@@ -1303,7 +1354,7 @@ fn field_code_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     };
     ui.label(tl!("Field codes:"));
     let r = ui.add(egui::TextEdit::singleline(code).desired_width(320.0).font(egui::TextStyle::Monospace));
-    if !r.has_focus() && code.is_empty() {
+    if !r.has_focus() && code.is_empty() && crate::modal_input::keys_enabled(ui) {
         r.request_focus();
     }
     ui.label(egui::RichText::new("PAGE · NUMPAGES · DATE \\@ \"MMMM d, yyyy\" · AUTHOR · TITLE · SEQ Figure").small().weak());

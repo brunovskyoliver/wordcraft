@@ -518,7 +518,7 @@ fn body(ui: &mut Ui, d: &mut ColorsDialog) -> Option<bool> {
                 out = Some(false);
             }
             let typing = ui.ctx().memory(|m| m.focused().is_some());
-            if okb.clicked() || (!typing && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
+            if okb.clicked() || (!typing && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter))) {
                 out = Some(true);
             }
         });

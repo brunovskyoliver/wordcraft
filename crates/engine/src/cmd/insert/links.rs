@@ -50,8 +50,11 @@ pub(super) fn link(s: &mut Session, v: &Value) -> CmdResult {
             }
         },
     };
-    if url.is_empty() || url.len() > 4096 {
-        return Err(CmdError::Params("bad url".into()));
+    if url.is_empty() {
+        return Err(CmdError::Params("a link address is required".into()));
+    }
+    if url.len() > 4096 {
+        return Err(CmdError::Params("the link address is too long".into()));
     }
     let style = Some("Hyperlink".to_string());
     if s.sel.is_collapsed() {

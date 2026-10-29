@@ -51,6 +51,7 @@ impl WordApp {
         self.dialog = None;
         self.colors = None;
         self.restrict = crate::dialogs_review::RestrictPane { open: self.restrict.open, ..Default::default() };
+        self.thesaurus = Default::default();
         self.status_msg = None;
         self.change_picture_target = None;
         self.recipient_list_pending = false;

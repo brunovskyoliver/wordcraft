@@ -45,6 +45,7 @@ pub mod keys;
 pub mod keytips;
 mod local_time;
 pub mod mini_toolbar;
+mod modal_input;
 pub mod objects;
 pub mod options;
 pub mod panes;
@@ -466,6 +467,7 @@ pub struct WordApp {
     pub colors: Option<colors::ColorsDialog>,
     /// The Restrict Editing pane (#412).
     pub restrict: dialogs_review::RestrictPane,
+    pub(crate) thesaurus: panes::ThesaurusState,
     pub status_msg: Option<(String, f64)>,
     pub previews: previews::Previews,
     /// Media key of the picture a pending Change Picture replaces (#147).

@@ -1,0 +1,84 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1.25}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "dark"}}}
+{"method": "engine.execute", "params": {"command": "tools.customizeKeyboard", "params": {"assign": {"command": "view.selectionPane", "key": "Mod+Shift+F9"}}}}
+{"method": "engine.execute", "params": {"command": "insert.shape", "params": {"kind": "rectangle", "width": 100, "height": 60}}}
+{"method": "engine.execute", "params": {"command": "insert.shape", "params": {"kind": "ellipse", "width": 70, "height": 50}}}
+{"method": "engine.execute", "params": {"command": "select.objects", "params": {"index": 1}}}
+{"method": "engine.execute", "params": {"command": "ui.tab", "params": {"tab": "Layout"}}}
+{"method": "engine.execute", "params": {"command": "arrange.selectionPane", "params": {}}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}
+{"method": "ui.key", "params": {"key": "F9", "cmd": true, "shift": true}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": true}}}}
+{"shot": "selection-rows-delete-refresh-undo--dark-fractional--01-open.png"}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 3}}}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"focused": true}}}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 3}, "focus": {"path": [0], "story": "body", "off": 6}}}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"focused": true}}}
+{"shot": "selection-rows-delete-refresh-undo--dark-fractional--02-second-selected.png"}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 3}}}}
+{"method": "ui.key", "params": {"key": "Delete"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 3}}}
+{"method": "engine.execute", "params": {"command": "arrange.selectionPane", "params": {}}, "expect": {"ok": true, "result": [{"hidden": false, "index": 0, "kind": "shape", "name": "Ellipse 1", "pos": {"off": 0, "path": [0], "story": "body"}, "size": [70.0, 50.0]}]}}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 3}}}}
+{"shot": "selection-rows-delete-refresh-undo--dark-fractional--03-survivor-reindexed.png"}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 3}}}}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}
+{"method": "engine.execute", "params": {"command": "arrange.selectionPane", "params": {}}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 3}}}}

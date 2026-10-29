@@ -1,0 +1,28 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "A small house."}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "commands"}}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "S"}}
+{"method": "ui.text", "params": {"text": "synonym"}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dialog": {"dialog": "commands", "query": "synonym"}}}}
+{"shot": "synonym-search-regression--synonym-search-after.png"}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 8}
+{"shot": "synonym-search-regression--synonym-search-enter-after.png"}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": null, "view": {"navPane": true, "thesaurusPane": false}}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "commands"}}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "T"}}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "thesaurus"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "commands", "query": "thesaurus"}}}}
+{"shot": "synonym-search-regression--thesaurus-search-after.png"}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": null, "view": {"thesaurusPane": true}, "focused": false}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "A small house."}}}}
+{"shot": "synonym-search-regression--thesaurus-search-opened-after.png"}

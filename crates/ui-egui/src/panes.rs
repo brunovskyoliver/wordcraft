@@ -21,6 +21,9 @@ mod comments;
 mod host;
 mod inspector;
 mod nav;
+mod selection;
+mod thesaurus;
+pub(crate) use thesaurus::ThesaurusState;
 mod side;
 mod state;
 
@@ -57,6 +60,8 @@ pub enum Pane {
     FormatShape,
     RestrictEditing,
     Comments,
+    Selection,
+    Thesaurus,
 }
 
 impl Pane {
@@ -72,6 +77,8 @@ impl Pane {
             Self::FormatShape => "Format Shape",
             Self::RestrictEditing => "Restrict Editing",
             Self::Comments => "Comments",
+            Self::Selection => "Selection Pane",
+            Self::Thesaurus => "Thesaurus",
         }
     }
 
@@ -87,6 +94,8 @@ impl Pane {
             Self::FormatShape => (Edge::End, 280.0),
             Self::RestrictEditing => (Edge::End, 270.0),
             Self::Comments => (Edge::End, 290.0),
+            Self::Selection => (Edge::End, 260.0),
+            Self::Thesaurus => (Edge::End, 280.0),
         };
         PaneState::docked(edge, width)
     }
@@ -104,10 +113,12 @@ impl Pane {
             Self::FormatShape => "formatShape",
             Self::RestrictEditing => "restrictEditing",
             Self::Comments => "comments",
+            Self::Selection => "selection",
+            Self::Thesaurus => "thesaurus",
         }
     }
 
-    const ALL: [Self; 10] = [
+    const ALL: [Self; 12] = [
         Self::SmartArtText,
         Self::Navigation,
         Self::Clipboard,
@@ -118,6 +129,8 @@ impl Pane {
         Self::FormatShape,
         Self::RestrictEditing,
         Self::Comments,
+        Self::Selection,
+        Self::Thesaurus,
     ];
 
     fn from_key(key: &str) -> Option<Self> {
@@ -136,6 +149,8 @@ impl Pane {
             Self::AltText => Some("view.altTextPane"),
             Self::FormatShape => Some("view.formatShapePane"),
             Self::Comments => Some("view.commentsPane"),
+            Self::Selection => Some("view.selectionPane"),
+            Self::Thesaurus => Some("view.thesaurusPane"),
             Self::RestrictEditing => None,
         }
     }
@@ -148,6 +163,10 @@ impl PaneContent<Pane> for Content<'_> {
 
     fn body(&mut self, ui: &mut Ui, pane: &Pane) {
         let app = &mut *self.app;
+        // Floating panes have their own Area and do not inherit the main UI's enabled state.
+        if crate::modal_input::background_blocked(app) {
+            ui.disable();
+        }
         match pane {
             Pane::SmartArtText => crate::dialogs_smart_art::text_pane(app, ui),
             Pane::Navigation => nav(app, ui),
@@ -161,6 +180,8 @@ impl PaneContent<Pane> for Content<'_> {
             }
             Pane::RestrictEditing => crate::dialogs_review::restrict_pane(app, ui),
             Pane::Comments => comments(app, ui),
+            Pane::Selection => selection::show(app, ui),
+            Pane::Thesaurus => thesaurus::show(app, ui),
         }
     }
 

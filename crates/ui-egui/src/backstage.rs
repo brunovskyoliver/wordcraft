@@ -74,57 +74,65 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 app.canvas.want_focus = true;
             }
             ui.add_space(if mac { 12.0 } else { 6.0 });
-            for (id, label, icon) in PAGES {
-                // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
-                let on = has_document || works_without_document(id);
-                let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, on, tl!(label)));
-                let active = app.ui.backstage_page == id;
-                if active {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(46));
-                } else if on && resp.hovered() {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
-                }
-                let ink = if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) };
-                icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 31.0, r.center().y), vec2(18.0, 18.0)), icon, ink, ink);
-                ui.painter().text(
-                    pos2(r.min.x + 52.0, r.center().y),
-                    Align2::LEFT_CENTER,
-                    tl!(label),
-                    if active { semibold(14.0) } else { medium(14.0) },
-                    ink,
-                );
-                if resp.clicked() {
-                    match id {
-                        // A document without a file goes to the Save As page (as in Word) instead
-                        // of `file.save`, which would also open the native Save As dialog.
-                        // In the browser a save is a download, so it saves right away.
-                        "save" if app.session.path.is_none() && app.services.download.is_none() => {
-                            app.ui.backstage_page = "saveAs".into();
-                        }
-                        "save" => {
-                            let r = app.run("file.save", json!({}));
-                            if r.is_ok_and(|v| v.get("saved").and_then(serde_json::Value::as_bool) == Some(true) || v.get("downloaded").is_some()) {
-                                app.ui.backstage = false;
-                                app.canvas.want_focus = true;
-                            } else {
+            let height = ui.available_height();
+            egui::ScrollArea::vertical().id_salt("backstage_pages").auto_shrink(false).show(ui, |ui| {
+                let content_top = ui.cursor().top();
+                for (id, label, icon) in PAGES {
+                    // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
+                    let on = has_document || works_without_document(id);
+                    let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
+                    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, on, tl!(label)));
+                    let active = app.ui.backstage_page == id;
+                    if active {
+                        ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(46));
+                    } else if on && resp.hovered() {
+                        ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
+                    }
+                    let ink = if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) };
+                    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 31.0, r.center().y), vec2(18.0, 18.0)), icon, ink, ink);
+                    ui.painter().text(
+                        pos2(r.min.x + 52.0, r.center().y),
+                        Align2::LEFT_CENTER,
+                        tl!(label),
+                        if active { semibold(14.0) } else { medium(14.0) },
+                        ink,
+                    );
+                    if resp.clicked() {
+                        match id {
+                            // A document without a file goes to the Save As page (as in Word) instead
+                            // of `file.save`, which would also open the native Save As dialog.
+                            // In the browser a save is a download, so it saves right away.
+                            "save" if app.session.path.is_none() && app.services.download.is_none() => {
                                 app.ui.backstage_page = "saveAs".into();
                             }
+                            "save" => {
+                                let r = app.run("file.save", json!({}));
+                                if r.is_ok_and(|v| v.get("saved").and_then(serde_json::Value::as_bool) == Some(true) || v.get("downloaded").is_some())
+                                {
+                                    app.ui.backstage = false;
+                                    app.canvas.want_focus = true;
+                                } else {
+                                    app.ui.backstage_page = "saveAs".into();
+                                }
+                            }
+                            "saveAs" => {
+                                app.ui.backstage_page = "saveAs".into();
+                            }
+                            // Not a page: `file.close` asks Save / Don't Save / Cancel first when there
+                            // are unsaved changes, and Cancel leaves the Backstage where it was.
+                            "close" => {
+                                let _ = app.run("file.close", json!({}));
+                            }
+                            _ => app.ui.backstage_page = id.into(),
                         }
-                        "saveAs" => {
-                            app.ui.backstage_page = "saveAs".into();
-                        }
-                        // Not a page: `file.close` asks Save / Don't Save / Cancel first when there
-                        // are unsaved changes, and Cancel leaves the Backstage where it was.
-                        "close" => {
-                            let _ = app.run("file.close", json!({}));
-                        }
-                        _ => app.ui.backstage_page = id.into(),
                     }
                 }
-            }
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for (label, id) in [("About", "about"), ("Discord community", "discord")] {
+                // Pin auxiliary links to the bottom when room allows; let the same vertical
+                // scroll area reveal them after the page list on short windows.
+                let used = ui.cursor().top() - content_top;
+                let footer_height = 64.0 + ui.spacing().item_spacing.y;
+                ui.add_space((height - used - footer_height).max(0.0));
+                for (label, id) in [("Discord community", "discord"), ("About", "about")] {
                     let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), tl!(label)));
                     if resp.hovered() {
@@ -147,7 +155,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             export_page(app, ui);
             return;
         }
-        egui::ScrollArea::vertical().show(ui, |ui| match app.ui.backstage_page.as_str() {
+        // File pages keep their controls clear of the scrollbar, including when it is hovered.
+        // Fill the content column so the bar stays at its edge instead of shrinking onto a card.
+        ui.spacing_mut().scroll.floating = false;
+        egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| match app.ui.backstage_page.as_str() {
             "home" => home_page(app, ui),
             "new" => new_page(app, ui),
             "open" => open_page(app, ui),
@@ -224,56 +235,62 @@ fn heading(ui: &mut Ui, s: &str) {
     ui.add_space(16.0);
 }
 
+/// Use the row's full width, not the remaining space after earlier cards, so ordinary cards
+/// wrap intact while a single card can fit a very narrow window or enlarged interface.
+fn template_card_width(ui: &Ui) -> f32 {
+    ui.max_rect().width().clamp(1.0, 150.0)
+}
+
 /// Draws a template thumbnail and caption as one accessible button, lazily renders and caches a
 /// region-aware page preview, and creates a document from the template on click.
 fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
     let t = Tokens::get(ui.ctx());
-    ui.vertical(|ui| {
-        // The thumbnail and its caption are one button named by the caption, so a screen reader
-        // announces "Blank document, button" rather than unnamed text (#3176); the caption opens
-        // the template too, as in Word.
-        let caption = crate::i18n::tc("template", label);
-        let galley = ui.painter().layout_no_wrap(caption.to_string(), regular(12.5), ui.visuals().text_color());
-        let (tile, resp) = ui.allocate_exact_size(vec2(galley.size().x.max(150.0), 194.0 + galley.size().y), Sense::click());
-        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), caption));
-        let r = Rect::from_min_size(tile.min, vec2(150.0, 194.0));
-        ui.painter().rect(
-            r,
-            2.0,
-            egui::Color32::WHITE,
-            Stroke::new(if resp.hovered() { 2.0 } else { 1.0 }, if resp.hovered() { t.accent } else { t.border_strong }),
-            egui::StrokeKind::Inside,
+    // The thumbnail and its caption are one button named by the caption, so a screen reader
+    // announces "Blank document, button" rather than unnamed text (#3176); the caption opens
+    // the template too, as in Word.
+    let caption = crate::i18n::tc("template", label);
+    let width = template_card_width(ui);
+    let preview_height = width * (194.0 / 150.0);
+    let galley = ui.painter().layout(caption.to_string(), regular(12.5), ui.visuals().text_color(), width);
+    let (tile, resp) = ui.allocate_exact_size(vec2(width, preview_height + galley.size().y), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), caption));
+    let r = Rect::from_min_size(tile.min, vec2(width, preview_height));
+    ui.painter().rect(
+        r,
+        2.0,
+        egui::Color32::WHITE,
+        Stroke::new(if resp.hovered() { 2.0 } else { 1.0 }, if resp.hovered() { t.accent } else { t.border_strong }),
+        egui::StrokeKind::Inside,
+    );
+    let ppp = ui.ctx().pixels_per_point();
+    let key = format!("tpl:{template}:{ppp}");
+    let region = app.session.region();
+    let tex = ui.ctx().data(|d| d.get_temp::<egui::TextureHandle>(egui::Id::unique(&key))).or_else(|| {
+        let mut s = wordcraft_engine::Session::new(wordcraft_doc::Document::new());
+        // The blank tile shows the region's paper (#838).
+        s.system_region = region;
+        let _ = s.run("file.new", &json!({"template": template}));
+        let l = s.export_layout();
+        let page = l.pages.first()?;
+        let img = wordcraft_render::render_page(&s.doc, page, 150.0 / page.w * ppp, &crate::canvas::screen_render_options());
+        let px = img.to_straight();
+        let h = ui.ctx().load_texture(
+            &key,
+            egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px),
+            egui::TextureOptions::LINEAR,
         );
-        let ppp = ui.ctx().pixels_per_point();
-        let key = format!("tpl:{template}:{ppp}");
-        let region = app.session.region();
-        let tex = ui.ctx().data(|d| d.get_temp::<egui::TextureHandle>(egui::Id::unique(&key))).or_else(|| {
-            let mut s = wordcraft_engine::Session::new(wordcraft_doc::Document::new());
-            // The blank tile shows the region's paper (#838).
-            s.system_region = region;
-            let _ = s.run("file.new", &json!({"template": template}));
-            let l = s.export_layout();
-            let page = l.pages.first()?;
-            let img = wordcraft_render::render_page(&s.doc, page, 150.0 / page.w * ppp, &crate::canvas::screen_render_options());
-            let px = img.to_straight();
-            let h = ui.ctx().load_texture(
-                &key,
-                egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px),
-                egui::TextureOptions::LINEAR,
-            );
-            ui.ctx().data_mut(|d| d.insert_temp(egui::Id::unique(&key), h.clone()));
-            Some(h)
-        });
-        if let Some(h) = tex {
-            ui.painter().image(h.id(), r.shrink(1.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), egui::Color32::WHITE);
-        }
-        ui.painter().galley(pos2(r.min.x, r.max.y), galley, ui.visuals().text_color());
-        if resp.clicked() {
-            let _ = app.run("file.new", json!({"template": template}));
-            app.ui.backstage = false;
-            app.canvas.want_focus = true;
-        }
+        ui.ctx().data_mut(|d| d.insert_temp(egui::Id::unique(&key), h.clone()));
+        Some(h)
     });
+    if let Some(h) = tex {
+        ui.painter().image(h.id(), r.shrink(1.0), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), egui::Color32::WHITE);
+    }
+    ui.painter().galley(pos2(r.min.x, r.max.y), galley, ui.visuals().text_color());
+    if resp.clicked() {
+        let _ = app.run("file.new", json!({"template": template}));
+        app.ui.backstage = false;
+        app.canvas.want_focus = true;
+    }
 }
 
 /// The built-in templates in gallery order: display label and the `file.new` template id.
@@ -309,8 +326,8 @@ fn home_page(app: &mut WordApp, ui: &mut Ui) {
             "Good evening"
         },
     );
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = vec2(18.0, 0.0);
+    ui.with_layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true), |ui| {
+        ui.spacing_mut().item_spacing = vec2(18.0, 18.0);
         for (label, template) in TEMPLATES.into_iter().take(HOME_TEMPLATES) {
             template_tile(ui, app, label, template);
         }
@@ -344,7 +361,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
         return;
     }
     if !found.is_empty() {
-        ui.horizontal_wrapped(|ui| {
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true), |ui| {
             ui.spacing_mut().item_spacing = vec2(18.0, 18.0);
             for (label, template) in found {
                 template_tile(ui, app, label, template);
@@ -357,7 +374,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
         return;
     }
     ui.add_space(24.0);
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new(tl!("Personal")).font(semibold(16.0)));
         ui.add_space(8.0);
         if ui.small_button(tl!("Refresh")).on_hover_text(folder.to_string_lossy()).clicked() {
@@ -387,7 +404,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
             ui.label(egui::RichText::new(category).font(medium(13.5)).color(t.text));
             ui.add_space(6.0);
         }
-        ui.horizontal_wrapped(|ui| {
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true), |ui| {
             ui.spacing_mut().item_spacing = vec2(18.0, 18.0);
             for p in personal_found.iter().filter(|p| p.category == category) {
                 personal_tile(ui, app, p);
@@ -472,26 +489,53 @@ fn matching_personal(query: &str, list: &[PersonalTemplate]) -> Vec<PersonalTemp
 /// click makes a new document from it.
 fn personal_tile(ui: &mut Ui, app: &mut WordApp, p: &PersonalTemplate) {
     let t = Tokens::get(ui.ctx());
-    ui.vertical(|ui| {
-        ui.spacing_mut().item_spacing.y = 0.0;
-        ui.set_max_width(150.0);
-        let (r, resp) = ui.allocate_exact_size(vec2(150.0, 194.0), Sense::click());
-        ui.painter().rect(
-            r,
-            2.0,
-            egui::Color32::WHITE,
-            Stroke::new(if resp.hovered() { 2.0 } else { 1.0 }, if resp.hovered() { t.accent } else { t.border_strong }),
-            egui::StrokeKind::Inside,
-        );
-        let mark = egui::Color32::from_gray(150);
-        icons::paint(ui.painter(), Rect::from_center_size(r.center(), vec2(44.0, 44.0)), "documentTemplate", mark, t.accent);
-        let resp = resp.on_hover_text(&p.path);
-        let caption = ui.add(egui::Label::new(egui::RichText::new(&p.label).font(regular(12.5))).truncate().sense(Sense::click()));
-        if resp.clicked() || caption.clicked() {
-            let failed = open_personal(app, &p.path).err();
-            ui.ctx().data_mut(|d| d.insert_temp(personal_error_id(), failed.unwrap_or_default()));
-        }
+    // Allocate the whole card in the wrapped parent before painting. A nested vertical
+    // layout starts before its width is known and can put later cards outside the row.
+    let width = template_card_width(ui);
+    let preview_height = width * 194.0 / 150.0;
+    let mut caption = egui::text::LayoutJob::simple(p.label.clone(), regular(12.5), t.text, width);
+    caption.wrap.max_rows = 1;
+    caption.wrap.break_anywhere = true;
+    let caption = ui.fonts_mut(|fonts| fonts.layout_job(caption));
+    let (tile, resp) = ui.allocate_exact_size(vec2(width, preview_height + caption.size().y), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), &p.label));
+    let preview = Rect::from_min_size(tile.min, vec2(width, preview_height));
+    let highlighted = resp.hovered() || resp.has_focus();
+    ui.painter().rect(
+        preview,
+        2.0,
+        egui::Color32::WHITE,
+        Stroke::new(if highlighted { 2.0 } else { 1.0 }, if highlighted { t.accent } else { t.border_strong }),
+        egui::StrokeKind::Inside,
+    );
+    let mark = egui::Color32::from_gray(150);
+    icons::paint(ui.painter(), Rect::from_center_size(preview.center(), vec2(width.min(44.0), width.min(44.0))), "documentTemplate", mark, t.accent);
+    ui.painter().galley(pos2(tile.left(), preview.bottom()), caption, t.text);
+    let resp = resp.on_hover_ui(|ui| {
+        // A path can be one long token. Bound the complete tooltip, including its frame,
+        // and permit character breaks so neither name nor path escapes a scaled viewport.
+        let frame = egui::Frame::popup(ui.style()).total_margin().sum();
+        let screen = ui.ctx().content_rect().size();
+        let width = ui.spacing().tooltip_width.min((screen.x - frame.x).max(1.0));
+        let height = (screen.y - frame.y).max(1.0);
+        ui.set_width(width);
+        ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+        egui::ScrollArea::vertical().max_height(height).show(ui, |ui| {
+            for (text, font, color) in [(&p.label, medium(13.5), t.text), (&p.path, regular(11.5), t.text_dim)] {
+                let mut job = egui::text::LayoutJob::simple(text.clone(), font, color, ui.available_width());
+                job.wrap.break_anywhere = true;
+                let galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
+                ui.add(egui::Label::new(galley));
+            }
+            // The scroll viewport otherwise ends at the last line's logical advance.
+            // Keep the normal paragraph gap below its glyph ink at fractional scales too.
+            ui.add_space(ui.spacing().item_spacing.y);
+        });
     });
+    if resp.clicked() {
+        let failed = open_personal(app, &p.path).err();
+        ui.ctx().data_mut(|d| d.insert_temp(personal_error_id(), failed.unwrap_or_default()));
+    }
 }
 
 /// Make a new document from the personal template at `path` and close File; a template that

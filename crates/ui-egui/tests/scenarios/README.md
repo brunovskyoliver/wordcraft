@@ -26,3 +26,21 @@ Run helper regressions with `cargo test -p wordcraft-ui-egui --example ui_shot`.
 Pointer input is queued across frames. Add a `{"steps": 8}` settling step after `ui.click`
 before asserting its final effect. Drags, animations and background work may need more frames
 or an explicit state check. An immediate query can observe the state before the queued click.
+
+## Cycle 02
+
+The `cycle-02/` JSONL files cover Font validation and mutual exclusion, Hyperlink draft retention,
+Selection Pane selection/delete/undo, Thesaurus lookup/insert/repeat/stale targets, compact Options,
+Print, template galleries/sidebar, table-style preview/apply/undo, Read Aloud keyboard controls,
+and command-picker visibility. Variants specify compact, normal, wide, light/dark and scaling inputs
+in their first line. Screenshot filenames are flat and relative to the evidence working directory.
+
+For Read Aloud scenarios, set `WORDCRAFT_SPEECH=off`. This selects the existing silent backend so
+transport state stays deterministic and the host does not speak. The scenarios still exercise the
+real UI keyboard path and assert transport/document state. They do not verify audible output.
+
+Personal-template long-name/path cases use temporary synthetic DOTX fixtures and are kept with the
+external cycle-02 evidence; Backstage Rust regressions create their own temporary fixtures. UI unit
+tests additionally check modal pointer ownership, protection, accessible names, responsive geometry
+and command-picker filtering. Captures and command registration counts do not establish complete
+Word parity. Current findings and review limits are recorded in `docs/ui-audit.md`.

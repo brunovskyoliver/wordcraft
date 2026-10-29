@@ -1,0 +1,49 @@
+{"width": 640, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "display"}}}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "display", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--display-top.png"}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "display", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--display-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "save"}}}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "save", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--save-top.png"}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "save", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--save-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "accessibility"}}}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "accessibility", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--accessibility-top.png"}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "accessibility", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--accessibility-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "agents"}}}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "agents", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--agents-top.png"}
+{"method": "ui.wheel", "params": {"x": 350, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "agents", "backstagePage": "options"}}}}
+{"shot": "layout-supplement-boundary--agents-bottom.png"}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": false}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeRibbon"}}, "expect": {"result": {"dialog": "customizeRibbon"}}}
+{"steps": 12}
+{"shot": "layout-supplement-boundary--customizeRibbon.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog", "params": {}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeQuickAccess"}}, "expect": {"result": {"dialog": "customizeRibbon"}}}
+{"steps": 12}
+{"shot": "layout-supplement-boundary--customizeQuickAccess.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog", "params": {}}}

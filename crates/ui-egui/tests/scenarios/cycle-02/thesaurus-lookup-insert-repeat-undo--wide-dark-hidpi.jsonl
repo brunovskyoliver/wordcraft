@@ -1,0 +1,77 @@
+{"empty": true, "width": 1440, "height": 900, "pixelsPerPoint": 2}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "dark"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "The small house."}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "engine.execute", "params": {"command": "ui.tab", "params": {"tab": "Review"}}}
+{"method": "engine.execute", "params": {"command": "review.thesaurus", "params": {}}, "expect": {"ok": true, "result": {"word": "small"}}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"thesaurusPane": false}}}}
+{"method": "ui.click", "params": {"x": 135, "y": 82}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"thesaurusPane": true}, "focused": false}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "small", "anchor": {"path": [0], "story": "body", "off": 4}, "focus": {"path": [0], "story": "body", "off": 9}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"shot": "thesaurus-lookup-insert-repeat-undo--wide-dark-hidpi--01-results.png"}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "good"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "small", "anchor": {"path": [0], "story": "body", "off": 4}, "focus": {"path": [0], "story": "body", "off": 9}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"focused": true}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The fine house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"shot": "thesaurus-lookup-insert-repeat-undo--wide-dark-hidpi--02-inserted.png"}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "small", "anchor": {"path": [0], "story": "body", "off": 4}, "focus": {"path": [0], "story": "body", "off": 9}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "house"}}}
+{"method": "ui.key", "params": {"key": "F4"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small fine."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "house", "anchor": {"path": [0], "story": "body", "off": 10}, "focus": {"path": [0], "story": "body", "off": 15}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "small"}}}
+{"method": "ui.key", "params": {"key": "F7", "shift": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "zyzzyva"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "The small house."}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"shot": "thesaurus-lookup-insert-repeat-undo--wide-dark-hidpi--03-no-results.png"}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "good"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "house"}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "house", "anchor": {"path": [0], "story": "body", "off": 10}, "focus": {"path": [0], "story": "body", "off": 15}}}}
+{"shot": "thesaurus-lookup-insert-repeat-undo--wide-dark-hidpi--04-stale-disabled-insert.png"}

@@ -1,0 +1,52 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1.25}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "dark"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "Alpha Beta"}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "Alpha"}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.0, "italic": false}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "ui.key", "params": {"key": "K", "cmd": true}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "link", "url": "https://", "text": "Alpha"}}}}
+{"shot": "hyperlink-empty-correct-undo--dark-fractional--01-open.png"}
+{"method": "ui.key", "params": {"key": "Tab", "shift": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "Draft display title"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "link", "url": "", "text": "Draft display title"}}}}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "link", "url": "", "text": "Draft display title", "message": "bad parameters: a link address is required"}, "focused": false}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "Alpha Beta", "runs": [{"len": 10}]}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"shot": "hyperlink-empty-correct-undo--dark-fractional--02-invalid-retained.png"}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "https://example.invalid/note"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "link", "url": "https://example.invalid/note", "text": "Draft display title", "message": ""}}}}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": null}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "Alpha Beta", "runs": [{"len": 5, "props": {"link": "https://example.invalid/note", "style": "Hyperlink"}}, {"len": 5}]}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"shot": "hyperlink-empty-correct-undo--dark-fractional--03-corrected-applied.png"}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "Alpha Beta", "runs": [{"len": 10}]}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}

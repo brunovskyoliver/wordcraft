@@ -1,0 +1,53 @@
+{"width": 640, "height": 480, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}, "expect": {"result": {"language": "en", "effective": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 100}}, "expect": {"result": {"auto": false, "percent": 100}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "general"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "general"}}}}
+{"shot": "layout-options-640x480-light--general-top.png"}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "general"}}}}
+{"shot": "layout-options-640x480-light--general-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "proofing"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "proofing"}}}}
+{"shot": "layout-options-640x480-light--proofing-top.png"}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "proofing"}}}}
+{"shot": "layout-options-640x480-light--proofing-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "advanced"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "advanced"}}}}
+{"shot": "layout-options-640x480-light--advanced-top.png"}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "advanced"}}}}
+{"shot": "layout-options-640x480-light--advanced-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "language"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "language"}}}}
+{"shot": "layout-options-640x480-light--language-top.png"}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 565.0, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "language"}}}}
+{"shot": "layout-options-640x480-light--language-bottom.png"}

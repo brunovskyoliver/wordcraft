@@ -1,0 +1,53 @@
+{"width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "de"}}, "expect": {"result": {"language": "de", "effective": "de"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}, "expect": {"result": {"auto": false, "percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "general"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "general"}}}}
+{"shot": "layout-options-de1024x768-scale150--general-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "general"}}}}
+{"shot": "layout-options-de1024x768-scale150--general-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "proofing"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "proofing"}}}}
+{"shot": "layout-options-de1024x768-scale150--proofing-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "proofing"}}}}
+{"shot": "layout-options-de1024x768-scale150--proofing-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "advanced"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "advanced"}}}}
+{"shot": "layout-options-de1024x768-scale150--advanced-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "advanced"}}}}
+{"shot": "layout-options-de1024x768-scale150--advanced-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "language"}}}
+{"steps": 6}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": 10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "language"}}}}
+{"shot": "layout-options-de1024x768-scale150--language-top.png"}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 607.6666666666666, "y": 280, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "dialog": null, "ui": {"backstage": true, "backstagePage": "options", "optionsPane": "language"}}}}
+{"shot": "layout-options-de1024x768-scale150--language-bottom.png"}

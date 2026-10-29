@@ -104,6 +104,8 @@ pub struct CommandSpec {
     /// Parameter description for agents (`{"size": number}`).
     pub params: &'static str,
     pub mutates: bool,
+    /// Offer in command search and customization. Parameter-only helpers remain callable by id.
+    pub ui_visible: bool,
     /// `None` = enabled; `Some(reason)` = disabled.
     pub enabled: fn(&Session) -> Option<&'static str>,
     pub run: fn(&mut Session, &Value) -> CmdResult,
@@ -115,7 +117,12 @@ fn always(_: &Session) -> Option<&'static str> {
 
 impl CommandSpec {
     pub const fn new(id: &'static str, label: &'static str, location: &'static str, run: fn(&mut Session, &Value) -> CmdResult) -> Self {
-        CommandSpec { id, label, location, shortcut: "", params: "{}", mutates: true, enabled: always, run }
+        CommandSpec { id, label, location, shortcut: "", params: "{}", mutates: true, ui_visible: true, enabled: always, run }
+    }
+    /// Invoked by automation or a presentation command, not offered as a standalone UI action.
+    pub const fn automation_only(mut self) -> Self {
+        self.ui_visible = false;
+        self
     }
     pub const fn key(mut self, s: &'static str) -> Self {
         self.shortcut = s;

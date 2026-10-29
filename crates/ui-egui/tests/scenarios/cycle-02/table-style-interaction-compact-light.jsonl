@@ -1,0 +1,30 @@
+{"empty": true, "width": 800, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "insert.table", "params": {"rows": 3, "cols": 3}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "modifyTableStyle"}}, "expect": {"result": {"dialog": "modifyTableStyle"}}}
+{"steps": 8}
+{"method": "ui.inspect"}
+{"shot": "table-style-interaction-compact-light--01-open.png"}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"result": {"depth": 1}}}
+{"method": "ui.click", "params": {"x": 398.0, "y": 189.0}}
+{"steps": 8}
+{"method": "ui.inspect"}
+{"shot": "table-style-interaction-compact-light--02-bold-preview.png"}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"result": {"dialog": null}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"result": {"depth": 2}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "modifyTableStyle"}}}
+{"method": "ui.inspect"}
+{"shot": "table-style-interaction-compact-light--03-reopened-bold.png"}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 8}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"result": {"depth": 1}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "modifyTableStyle"}}}
+{"method": "ui.inspect"}
+{"shot": "table-style-interaction-compact-light--04-undo-restored-preview.png"}
+{"method": "ui.key", "params": {"key": "Escape"}}
+{"steps": 8}

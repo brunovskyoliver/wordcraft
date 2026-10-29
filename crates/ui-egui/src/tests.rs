@@ -5357,6 +5357,7 @@ fn the_full_screen_button_reports_the_commands_own_enabled_state() {
                     shortcut: s.shortcut,
                     params: s.params,
                     mutates: s.mutates,
+                    ui_visible: s.ui_visible,
                     enabled: unavailable,
                     run: s.run,
                 }

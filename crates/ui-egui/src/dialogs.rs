@@ -73,6 +73,8 @@ pub enum Dialog {
         /// an Asian font in the selection.
         asian: bool,
         size: String,
+        /// Why the last apply was refused; the draft stays in the dialog.
+        message: String,
         bold: bool,
         italic: bool,
         underline: bool,
@@ -191,6 +193,8 @@ pub enum Dialog {
     Link {
         url: String,
         text: String,
+        /// Why the last submission was refused; never discard the draft on failure.
+        message: String,
         /// Focus and select the address when the dialog first opens.
         focus: bool,
         /// "Place in This Document" instead of "Existing File or Web Page".
@@ -478,6 +482,11 @@ pub enum Dialog {
 }
 
 impl Dialog {
+    /// These dialogs stay open while the user selects or edits document content.
+    pub(crate) fn is_modeless(&self) -> bool {
+        matches!(self, Self::Find { .. }) || matches!(self, Self::Refs(d) if matches!(d.as_ref(), crate::dialogs_refs::RefsDialog::MarkEntry(_)))
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             Dialog::RenameDocument { .. } => "renameDocument",
@@ -592,6 +601,7 @@ impl Dialog {
                     font_ea,
                     asian,
                     size: st.get("size").and_then(Value::as_f64).map(|v| v.to_string()).unwrap_or_default(),
+                    message: String::new(),
                     bold: b("bold"),
                     italic: b("italic"),
                     underline: b("underline"),
@@ -707,9 +717,15 @@ impl Dialog {
                     first_page: sp.title_page,
                 }
             }
-            "link" => {
-                Dialog::Link { url: "https://".into(), text: app.session.selected_text(), place: false, targets: None, pick: None, focus: true }
-            }
+            "link" => Dialog::Link {
+                url: "https://".into(),
+                text: app.session.selected_text(),
+                message: String::new(),
+                place: false,
+                targets: None,
+                pick: None,
+                focus: true,
+            },
             "bookmark" => Dialog::Bookmark { name: bookmark_at_caret(&app.session), by_location: false, hidden: false, deleted: false },
             "wordCount" => Dialog::WordCount { stats: app.session.run("review.wordCount", &json!({})).unwrap_or_default() },
             "zoom" => Dialog::Zoom { percent: (app.session.view.zoom * 100.0).round() },

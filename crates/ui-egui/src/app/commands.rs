@@ -100,6 +100,26 @@ impl WordApp {
         if id == "file.accessibility" && r.is_ok() {
             self.session.view.accessibility_pane = true;
         }
+        // The user-facing Selection Pane command presents the object list. Agent queries
+        // through execute() keep returning data without opening or closing a pane.
+        if id == "arrange.selectionPane" && r.is_ok() {
+            let _ = self.execute("view.selectionPane", json!({}));
+        }
+        // User gestures show the result; execute()/CLI/MCP keep the same pure query.
+        if id == "review.thesaurus"
+            && let Ok(value) = &r
+        {
+            // These modes hide task panes. Make the owner drawable before it requests focus.
+            if self.session.view.focus_mode {
+                self.execute("view.focus", json!({"value": false}))?;
+            }
+            if self.session.view.full_screen_view {
+                self.execute("view.fullScreenView", json!({"value": false}))?;
+            }
+            self.ui.backstage = false;
+            self.execute("view.thesaurusPane", json!({"value": true}))?;
+            self.thesaurus = panes::ThesaurusState::from_result(value)?;
+        }
         // Match Fields and Check for Errors show what they found.
         if let Ok(v) = &r
             && let Some(d) = dialogs::Dialog::report(id, v)

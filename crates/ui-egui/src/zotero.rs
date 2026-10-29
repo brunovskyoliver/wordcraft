@@ -245,8 +245,8 @@ pub fn show_alert(app: &mut WordApp, ctx: &egui::Context) {
         _ => &[("OK", 1)],
     };
     let mut picked = None;
-    egui::Window::new("Zotero")
-        .id(egui::Id::unique("zotero-alert"))
+    let id = egui::Id::unique("zotero-alert");
+    crate::modal_input::window(ctx, id, egui::Window::new("Zotero").id(id))
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, -40.0))

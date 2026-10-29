@@ -1,0 +1,47 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "Alpha Beta"}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "Alpha"}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.0, "italic": false}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "font"}}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "size": "12", "message": ""}}}}
+{"shot": "font-size-0--normal-light--01-open-coordinate-check.png"}
+{"method": "ui.click", "params": {"x": 550.0, "y": 214.0}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "0"}}
+{"steps": 6}
+{"method": "ui.click", "params": {"x": 435.0, "y": 353.0}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "size": "0", "italic": true}}}}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "size": "0", "italic": true, "message": "bad parameters: size must be between 1 and 1638"}, "focused": false}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.0, "italic": false}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "Alpha Beta", "runs": [{"len": 10}]}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"shot": "font-size-0--normal-light--02-invalid-retained.png"}
+{"method": "ui.key", "params": {"key": "A", "cmd": true}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Backspace"}}
+{"steps": 6}
+{"method": "ui.text", "params": {"text": "12.3"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "size": "12.3", "italic": true, "message": ""}}}}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": null}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.5, "italic": true}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"shot": "font-size-0--normal-light--03-corrected-applied.png"}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.0, "italic": false}}}}
+{"method": "engine.execute", "params": {"command": "document.paragraph", "params": {"path": [0]}}, "expect": {"ok": true, "result": {"paragraph": {"text": "Alpha Beta", "runs": [{"len": 10}]}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}

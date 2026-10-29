@@ -114,6 +114,7 @@ fn drafts(app: &mut WordApp) -> &mut CommentDrafts {
 /// draft until the field loses focus; then [`commit_comment`] writes it back with one
 /// `review.editComment`, so each editing session is one undo step.
 pub(crate) fn comment_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Option<egui::FontId>, focus: bool) {
+    let owns_input = crate::modal_input::keys_enabled(ui);
     let Some(part) = app.session.doc.comments.get(&id).map(|c| c.part) else { return };
     let draft = drafts(app).edits.get(&id).cloned();
     let mut text = draft.unwrap_or_else(|| app.session.doc.plain_text(StoryRef::Part(part)));
@@ -129,14 +130,14 @@ pub(crate) fn comment_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Opti
         edit = edit.font(f);
     }
     let r = ui.add(edit);
-    if focus {
+    if focus && owns_input {
         r.request_focus();
     }
-    if r.changed() {
+    if r.changed() && owns_input {
         drafts(app).edits.insert(id, text);
     }
-    if r.lost_focus() {
-        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if r.lost_focus() && owns_input {
+        if crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
             // Escape throws the draft away: the field shows the comment's text again.
             drafts(app).edits.remove(&id);
         } else {
@@ -177,6 +178,7 @@ fn thread_root(app: &WordApp, id: u32) -> u32 {
 /// `review.reply`; returns true when the field is done (posted or left empty). A refused reply
 /// keeps the field open with its text.
 pub(crate) fn reply_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Option<egui::FontId>, focus: bool) -> bool {
+    let owns_input = crate::modal_input::keys_enabled(ui);
     let mut text = drafts(app).replies.get(&id).cloned().unwrap_or_default();
     let editable = crate::widgets::enabled(app, "review.reply");
     let mut edit = egui::TextEdit::multiline(&mut text)
@@ -189,18 +191,18 @@ pub(crate) fn reply_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Option
         edit = edit.font(f);
     }
     let r = ui.add(edit);
-    if focus {
+    if focus && owns_input {
         r.request_focus();
     }
-    if r.changed() {
+    if r.changed() && owns_input {
         drafts(app).replies.insert(id, text);
     }
-    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if r.lost_focus() && crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
         // Escape throws the reply away and closes the field.
         drafts(app).replies.remove(&id);
         return true;
     }
-    r.lost_focus() && commit_reply(app, id).is_ok()
+    owns_input && r.lost_focus() && commit_reply(app, id).is_ok()
 }
 
 /// Post a pending reply draft to comment `id` (nothing when there is none or it is blank). The
@@ -237,4 +239,52 @@ pub(crate) fn flush_comment_drafts(app: &mut WordApp) -> Result<(), String> {
         }
     }
     first
+}
+
+#[cfg(test)]
+mod modal_tests {
+    use super::*;
+    use egui_kittest::kittest::Queryable;
+
+    #[test]
+    fn disabled_comment_fields_keep_drafts_when_a_modal_takes_focus() {
+        for reply in [false, true] {
+            for key in [egui::Key::Escape, egui::Key::Enter] {
+                let mut app =
+                    WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("Commented text.")), crate::Services::default());
+                app.session.run("select.all", &json!({})).unwrap();
+                app.session.run("review.newComment", &json!({"text": "Original comment"})).unwrap();
+                let id = *app.session.doc.comments.keys().next().unwrap();
+                let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(400.0, 200.0)).build_ui_state(
+                    move |ui, app: &mut WordApp| {
+                        ui.add_enabled_ui(app.dialog.is_none(), |ui| {
+                            if reply {
+                                reply_editor(app, ui, id, None, false);
+                            } else {
+                                comment_editor(app, ui, id, None, false);
+                            }
+                        });
+                    },
+                    app,
+                );
+                h.run_steps(3);
+                h.get_by_role(egui::accesskit::Role::MultilineTextInput).click();
+                h.run_steps(2);
+                h.get_by_role(egui::accesskit::Role::MultilineTextInput).type_text(" draft");
+                h.run_steps(3);
+                let before = if reply { drafts(h.state_mut()).replies.get(&id).cloned() } else { drafts(h.state_mut()).edits.get(&id).cloned() };
+                assert!(before.is_some(), "the field must hold an uncommitted draft");
+                let doc = serde_json::to_value(&h.state().session.doc).unwrap();
+                let depth = h.state().session.undo_depth();
+                h.state_mut().run("ui.dialog", json!({"name": "font"})).unwrap();
+                h.ctx.memory_mut(|memory| memory.request_focus(egui::Id::unique("modal_test_owner")));
+                h.key_press(key);
+                h.run_steps(3);
+                let after = if reply { drafts(h.state_mut()).replies.get(&id).cloned() } else { drafts(h.state_mut()).edits.get(&id).cloned() };
+                assert_eq!(after, before, "reply={reply}, key={key:?}: the modal must neither discard nor commit the draft");
+                assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), doc);
+                assert_eq!(h.state().session.undo_depth(), depth);
+            }
+        }
+    }
 }

@@ -1,0 +1,22 @@
+{"empty": true, "width": 800, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "tools.customizeKeyboard", "params": {"assign": {"command": "view.selectionPane", "key": "Mod+Shift+F9"}}}}
+{"method": "engine.execute", "params": {"command": "ui.tab", "params": {"tab": "Layout"}}}
+{"method": "engine.execute", "params": {"command": "arrange.selectionPane", "params": {}}, "expect": {"ok": true, "result": []}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}
+{"method": "ui.key", "params": {"key": "F9", "cmd": true, "shift": true}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": true}}}}
+{"shot": "selection-empty--compact-light--01-open.png"}
+{"method": "ui.key", "params": {"key": "F6"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 6}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}
+{"method": "engine.execute", "params": {"command": "arrange.selectionPane", "params": {}}, "expect": {"ok": true, "result": []}}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"view": {"selectionPane": false}}}}

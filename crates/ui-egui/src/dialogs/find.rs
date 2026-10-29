@@ -154,7 +154,7 @@ pub(super) fn swallow_shortcut_text(swallow: &mut bool, e: &egui::Event) -> bool
 /// Search's filter: every word of the query is in the command's label, location or id, in English
 /// or in the interface language, so "insert table" finds Insert › Tables › Table (#819).
 pub(super) fn command_matches(c: &wordcraft_engine::CommandSpec, query: &str) -> bool {
-    if query.trim().is_empty() {
+    if !c.ui_visible || query.trim().is_empty() {
         return false;
     }
     let hay = format!(
@@ -194,7 +194,7 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
             GoToWhat::Page => {
                 let label = ui.label(tl!("Enter page number:"));
                 let r = ui.add(egui::TextEdit::singleline(target).desired_width(220.0)).labelled_by(label.id);
-                if std::mem::take(focus) {
+                if crate::modal_input::keys_enabled(ui) && std::mem::take(focus) {
                     r.request_focus();
                 }
                 ui.label(egui::RichText::new(tl!("Type +2 or -1 to move from the page you are on.")).weak());
@@ -211,7 +211,7 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
                     })
                     .response
                     .labelled_by(label.id);
-                if std::mem::take(focus) {
+                if crate::modal_input::keys_enabled(ui) && std::mem::take(focus) {
                     r.request_focus();
                 }
                 if bookmarks.is_empty() {
@@ -225,7 +225,7 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
     }
     let mut close = false;
     let mut go: Option<Value> = None;
-    let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
+    let enter = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Enter));
     ui.add_space(8.0);
     ui.horizontal(|ui| {
         let page_step = *what == GoToWhat::Page && target.trim().is_empty();
@@ -246,7 +246,7 @@ pub(super) fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, tar
                 GoToWhat::Bookmark => None,
             };
         }
-        if ui.button(tl!("Close")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+        if ui.button(tl!("Close")).clicked() || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape)) {
             close = true;
         }
     });

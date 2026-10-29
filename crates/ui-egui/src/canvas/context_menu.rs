@@ -4,7 +4,7 @@ use super::{Ui, WordApp, json};
 /// at the caret.
 pub(super) fn context_suggestions(app: &mut WordApp) {
     app.canvas.context_issue = app.session.run("review.suggestions", &json!({})).ok().filter(|v| !v.is_null());
-    app.canvas.context_synonyms = app.session.run("review.thesaurus", &json!({})).ok().and_then(|v| v.get("synonyms").cloned());
+    app.canvas.context_synonyms = Some(json!(wordcraft_engine::cmd::review::thesaurus_lookup(&app.session, None)));
 }
 
 /// Right-click inside an equation: its structures' actions, display and conversion.
@@ -93,16 +93,14 @@ pub(super) fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     item(ui, app, "Merge Formatting", "edit.pasteMerge", json!({}));
     item(ui, app, "Paste Special…", "edit.pasteSpecial", json!({}));
     ui.separator();
-    if let Some(syn) = app.canvas.context_synonyms.clone().and_then(|v| v.as_array().cloned()).filter(|a| !a.is_empty()) {
+    if let Some(lookup) = app.canvas.context_synonyms.clone()
+        && let Some(syn) = lookup.get("synonyms").and_then(|v| v.as_array()).filter(|a| !a.is_empty())
+    {
         ui.menu_button(tl!("Synonyms"), |ui| {
             for w in syn.iter().filter_map(|x| x.as_str()) {
                 if ui.button(w).clicked() {
-                    let _ = app.run("select.word", json!({}));
-                    let (a, b) = app.session.sel.ordered();
-                    let trimmed = app.session.doc.para_at(&a).and_then(|p| p.text.get(a.off..b.off)).map(|t| t.trim_end().len()).unwrap_or(0);
-                    let end = wordcraft_doc::Pos { off: a.off + trimmed, ..b };
-                    app.session.sel = wordcraft_engine::Selection { anchor: a, focus: end };
-                    let _ = app.run("text.insert", json!({"text": w, "raw": true}));
+                    let _ = app.run("review.replaceSynonym", json!({"target": lookup.get("target"), "word": lookup.get("word"), "text": w}));
+                    app.canvas.want_focus = true;
                     ui.close();
                 }
             }

@@ -418,6 +418,149 @@ fn new_lists_personal_templates_and_opens_one() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+fn personal_audit_fixtures(tag: &str) -> (std::path::PathBuf, Vec<String>) {
+    let dir = personal_dir(tag);
+    let labels = vec![
+        "Audit Alpha".to_string(),
+        format!("Audit Beta {}", "LongUnbrokenName".repeat(9)),
+        "Audit Delta Board review and decisions".to_string(),
+        "Audit Gamma Client meeting".to_string(),
+    ];
+    for (i, label) in labels.iter().enumerate() {
+        write_template(&dir.join(format!("{label}.dotx")), &format!("Personal fixture {i}"));
+    }
+    (dir, labels)
+}
+
+fn personal_audit_harness(dir: &std::path::Path, width: f32, percent: u16, theme: &str) -> egui_kittest::Harness<'static, WordApp> {
+    let mut h = new_page_harness(Some(dir.to_path_buf()));
+    h.set_size(egui::vec2(width, 600.0));
+    h.state_mut().run("ui.language", json!({"value": "en"})).unwrap();
+    h.state_mut().run("ui.interfaceSize", json!({"percent": percent})).unwrap();
+    h.state_mut().run("ui.theme", json!({"value": theme})).unwrap();
+    let search = h.state().window_id("backstage_template_search");
+    h.ctx.data_mut(|data| data.insert_temp(search, "Audit".to_string()));
+    h.run_steps(8);
+    h
+}
+
+/// Personal cards use the same row budget as built-ins, including a content column
+/// narrower than the normal 150-point card at enlarged interface scaling.
+#[test]
+fn personal_cards_wrap_within_compact_scaled_galleries_and_open_the_last_template() {
+    use egui::accesskit::Role;
+    let (dir, labels) = personal_audit_fixtures("responsive-personal");
+    for (width, percent) in [(640.0, 100), (800.0, 100), (1440.0, 100), (640.0, 150)] {
+        for theme in ["light", "dark"] {
+            let mut h = personal_audit_harness(&dir, width, percent, theme);
+            let first = h.get_by_role_and_label(Role::Button, &labels[0]).rect();
+            let last = h.get_by_role_and_label(Role::Button, &labels[3]).rect();
+            if width < 1000.0 {
+                assert!(last.top() > first.top(), "{width}/{percent}/{theme}: four cards must wrap");
+            }
+            let screen = h.ctx.content_rect();
+            for label in &labels {
+                h.get_by_role_and_label(Role::Button, label).scroll_to_me();
+                h.run_steps(8);
+                let rect = h.get_by_role_and_label(Role::Button, label).rect();
+                assert!(
+                    rect.left() >= 200.0 && rect.right() <= screen.right() - 40.0,
+                    "{width}/{percent}/{theme}: {label} escapes its content column: {rect:?}"
+                );
+                assert!(screen.contains_rect(rect), "{label} cannot be scrolled fully into view: {rect:?}");
+                assert!(rect.width() <= 150.0);
+            }
+            let document = h.state().session.document_id();
+            h.get_by_role_and_label(Role::Button, &labels[3]).click();
+            h.run_steps(8);
+            assert!(!h.state().ui.backstage);
+            assert_ne!(h.state().session.document_id(), document);
+            assert_eq!(h.state().session.path, None);
+            assert_eq!(
+                h.state().session.doc.settings.attached_template.as_deref(),
+                Some(dir.join(format!("{}.dotx", labels[3])).to_string_lossy().as_ref())
+            );
+            assert!(h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body).contains("Personal fixture 3"));
+        }
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// The full name and path remain available over both parts of a card. Long unbroken
+/// names must wrap inside the actual tooltip frame at the scaled screen edge.
+#[test]
+fn personal_card_tooltips_disclose_full_names_and_paths_within_the_viewport() {
+    use egui::accesskit::Role;
+    let (dir, labels) = personal_audit_fixtures("personal-tooltip");
+    for (width, percent, theme) in [(800.0, 100, "light"), (1440.0, 100, "dark"), (640.0, 150, "light")] {
+        for caption in [false, true] {
+            let mut h = personal_audit_harness(&dir, width, percent, theme);
+            h.get_by_role_and_label(Role::Button, &labels[1]).scroll_to_me();
+            h.run_steps(8);
+            let card = h.get_by_role_and_label(Role::Button, &labels[1]).rect();
+            let at = if caption { egui::pos2(card.center().x, card.bottom() - 3.0) } else { card.center() };
+            h.hover_at(at);
+            h.run_steps(80);
+            let path = dir.join(format!("{}.dotx", labels[1])).to_string_lossy().into_owned();
+            let screen = h.ctx.content_rect();
+            for text in [&labels[1], &path] {
+                let label = h.get_by_role_and_label(Role::Label, text);
+                assert!(
+                    screen.contains_rect(label.rect()),
+                    "{width}/{percent}/{theme} caption={caption}: tooltip text leaves screen: {:?}",
+                    label.rect()
+                );
+                let mut painted = false;
+                for shape in &h.output().shapes {
+                    if let egui::Shape::Text(paint) = &shape.shape
+                        && paint.galley.text() == text
+                    {
+                        painted = true;
+                        let bounds = paint.visual_bounding_rect();
+                        assert!(screen.contains_rect(bounds), "full tooltip text escapes the viewport");
+                        assert!(
+                            shape.clip_rect.contains_rect(bounds),
+                            "{width}/{percent}/{theme} caption={caption}: full tooltip text is clipped: text={text:?}, bounds={bounds:?}, clip={:?}",
+                            shape.clip_rect
+                        );
+                    }
+                }
+                assert!(painted, "full tooltip text must be painted, not only exposed to accessibility");
+            }
+        }
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_personal_card_caption_and_keyboard_activate_its_named_button() {
+    use egui::accesskit::Role;
+    let (dir, labels) = personal_audit_fixtures("personal-activation");
+    for keyboard in [false, true] {
+        let mut h = personal_audit_harness(&dir, 800.0, 100, "light");
+        h.get_by_role_and_label(Role::Button, &labels[3]).scroll_to_me();
+        h.run_steps(8);
+        if keyboard {
+            h.get_by_role_and_label(Role::Button, &labels[3]).focus();
+            h.run_steps(4);
+            assert!(h.get_by_role_and_label(Role::Button, &labels[3]).is_focused());
+            h.key_press(egui::Key::Enter);
+        } else {
+            let rect = h.get_by_role_and_label(Role::Button, &labels[3]).rect();
+            let pos = egui::pos2(rect.center().x, rect.bottom() - 3.0);
+            h.hover_at(pos);
+            for pressed in [true, false] {
+                h.event(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE });
+                h.run_steps(1);
+            }
+        }
+        h.run_steps(8);
+        assert!(!h.state().ui.backstage);
+        assert!(h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body).contains("Personal fixture 3"));
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// An empty (or not yet made) templates folder says where templates come from; no folder (the
 /// web) shows no Personal section. Home keeps only the built-ins.
 #[test]
@@ -1053,4 +1196,149 @@ fn backstage_save_as_sidebar_opens_save_as_page() {
     h.get_by_label("Save As").click();
     h.run_steps(4);
     assert_eq!(h.state().ui.backstage_page, "saveAs");
+}
+
+/// UI-AUDIT-001: template cards must wrap before placement and stay reachable in narrow File pages.
+#[test]
+fn compact_template_galleries_wrap_and_open_the_last_card() {
+    use egui::accesskit::Role;
+    for width in [640.0, 800.0, 1440.0] {
+        for page in ["home", "new"] {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+            app.run("ui.backstage", json!({"value": true, "page": page})).unwrap();
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(width, 600.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(6);
+            let count = if page == "home" { HOME_TEMPLATES } else { TEMPLATES.len() };
+            for (label, _) in TEMPLATES.into_iter().take(count) {
+                h.get_by_role_and_label(Role::Button, label).scroll_to_me();
+                h.run_steps(4);
+                let rect = h.get_by_role_and_label(Role::Button, label).rect();
+                assert!(rect.min.x >= 208.0 && rect.max.x <= width - 8.0, "{page} at {width}: {label} escapes horizontally: {rect:?}");
+                assert!(rect.min.y >= 0.0 && rect.max.y <= 600.0, "{page} at {width}: {label} cannot be scrolled into view: {rect:?}");
+            }
+            let last = TEMPLATES[count - 1].0;
+            let document = h.state().session.document_id();
+            h.get_by_role_and_label(Role::Button, last).click();
+            h.run_steps(4);
+            assert!(!h.state().ui.backstage, "{page} at {width}: the last card opens a document");
+            assert_ne!(h.state().session.document_id(), document);
+            assert!(!h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body).is_empty());
+        }
+    }
+}
+
+/// UI-AUDIT-001: at the minimum window height, the File menu's last actions must scroll into view.
+#[test]
+fn short_backstage_sidebar_keeps_options_and_about_reachable() {
+    use egui::accesskit::Role;
+    for height in [360.0, 480.0, 600.0, 900.0] {
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        app.run("ui.backstage", json!({"value": true, "page": "home"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1024.0, height)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(6);
+        for label in ["Options", "Discord community", "About"] {
+            h.get_by_role_and_label(Role::Button, label).scroll_to_me();
+            h.run_steps(4);
+            let rect = h.get_by_role_and_label(Role::Button, label).rect();
+            assert!(rect.min.y >= 0.0 && rect.max.y <= height, "{label} is clipped at {height}: {rect:?}");
+            if label == "Options" {
+                h.get_by_role_and_label(Role::Button, label).click();
+                h.run_steps(4);
+                assert_eq!(h.state().ui.backstage_page, "options");
+            }
+        }
+        let about = h.get_by_role_and_label(Role::Button, "About").rect();
+        let community = h.get_by_role_and_label(Role::Button, "Discord community").rect();
+        assert!(!about.intersects(community), "footer links must not overlap");
+        h.get_by_role_and_label(Role::Button, "About").click();
+        h.run_steps(4);
+        assert!(matches!(h.state().dialog, Some(crate::dialogs::Dialog::About { .. })));
+        h.state_mut().run("ui.closeDialog", json!({})).unwrap();
+        h.run_steps(3);
+        h.get_by_role_and_label(Role::Button, "Home").scroll_to_me();
+        h.run_steps(4);
+        h.get_by_role_and_label(Role::Button, "Home").click();
+        h.run_steps(4);
+        assert_eq!(h.state().ui.backstage_page, "home");
+        assert!(!h.state().session.dirty);
+    }
+}
+
+/// File galleries reserve the scrollbar's hit area, even when a hovered bar is fully wide.
+/// Mixed caption heights align at the page tops, and a narrow scaled column shrinks whole cards.
+#[test]
+fn gallery_cards_align_and_leave_the_scrollbar_clear_at_compact_scales() {
+    use egui::accesskit::Role;
+    for (width, height, percent) in [(800.0, 600.0, 100), (640.0, 360.0, 100), (640.0, 600.0, 150)] {
+        for page in ["home", "new"] {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+            app.run("ui.language", json!({"value": "en"})).unwrap();
+            app.run("ui.interfaceSize", json!({"percent": percent})).unwrap();
+            app.run("ui.backstage", json!({"value": true, "page": page})).unwrap();
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(width, height)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(12);
+            let screen = h.ctx.input(|i| i.content_rect());
+            let count = if page == "home" { HOME_TEMPLATES } else { TEMPLATES.len() };
+            // The first two captions have different line counts at the ordinary card width.
+            let blank = h.get_by_role_and_label(Role::Button, "Blank document").rect();
+            let sample = h.get_by_role_and_label(Role::Button, "Studio handbook (sample)").rect();
+            if percent == 100 {
+                assert!((blank.top() - sample.top()).abs() < 1.0, "{page}: one- and two-line captions must keep page tops aligned");
+                assert!(sample.height() > blank.height(), "exercise captions with different heights");
+            } else {
+                assert!(blank.width() < 150.0, "the enlarged interface fits cards to the narrow column");
+            }
+            for (label, _) in TEMPLATES.into_iter().take(count) {
+                h.get_by_role_and_label(Role::Button, label).scroll_to_me();
+                h.run_steps(12);
+                let bar = h
+                    .query_all_by_role(Role::ScrollBar)
+                    .map(|node| node.rect())
+                    .filter(|r| r.left() > blank.left() && r.height() > r.width())
+                    .max_by(|a, b| a.left().total_cmp(&b.left()))
+                    .expect("gallery has its own vertical scrollbar");
+                h.hover_at(bar.center());
+                h.run_steps(6);
+                let card = h.get_by_role_and_label(Role::Button, label).rect();
+                assert!(screen.contains_rect(card), "{page} {width}/{percent}%: {label} must scroll fully into view: {card:?}");
+                assert!(card.right() <= bar.left(), "{page} {width}/{percent}%: {label} overlaps the scrollbar hit area: {card:?} / {bar:?}");
+            }
+            // A click on the right edge of the last named card must open it, not drag the bar.
+            let label = TEMPLATES[count - 1].0;
+            let card = h.get_by_role_and_label(Role::Button, label).rect();
+            let pos = egui::pos2(card.right() - 2.0, card.center().y);
+            let document = h.state().session.document_id();
+            h.hover_at(pos);
+            h.run_steps(2);
+            for pressed in [true, false] {
+                h.event(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE });
+                h.step();
+            }
+            h.run_steps(4);
+            assert!(!h.state().ui.backstage, "the template's right edge is clickable");
+            assert_ne!(h.state().session.document_id(), document);
+            assert!(!h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body).is_empty());
+        }
+    }
 }

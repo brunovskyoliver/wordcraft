@@ -790,6 +790,7 @@ fn visuals(t: &Tokens) -> Visuals {
     v.selection.bg_fill = t.selection;
     v.selection.stroke = Stroke::new(1.0, t.accent);
     v.hyperlink_color = t.accent_text;
+    v.error_fg_color = t.red;
     v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, t.border);
     v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, t.text);
     v.widgets.inactive.bg_fill = t.input;
@@ -832,6 +833,17 @@ mod tests {
         };
         let (x, y) = (lum(a), lum(b));
         (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    #[test]
+    fn validation_errors_read_on_dialog_and_input_backgrounds() {
+        for t in [super::Tokens::light(), super::Tokens::dark()] {
+            let visual = super::visuals(&t);
+            for (name, background) in [("dialog", t.menu), ("panel", t.panel), ("input", t.input)] {
+                let ratio = contrast(visual.error_fg_color, background);
+                assert!(ratio >= 4.5, "dark={}: error text on {name} is {ratio:.2}:1", t.dark);
+            }
+        }
     }
 
     /// #1885: the ✕ on a window's close box reads on its hover and pressed reds in both themes.

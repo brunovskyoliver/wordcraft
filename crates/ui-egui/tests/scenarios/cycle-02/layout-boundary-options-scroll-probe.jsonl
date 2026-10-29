@@ -1,0 +1,37 @@
+{"width": 640, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 150}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "general"}}}
+{"steps": 8}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "general", "backstagePage": "options"}}}}
+{"shot": "layout-boundary-options-scroll-probe--general-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "advanced"}}}
+{"steps": 8}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "advanced", "backstagePage": "options"}}}}
+{"shot": "layout-boundary-options-scroll-probe--advanced-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "proofing"}}}
+{"steps": 8}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "proofing", "backstagePage": "options"}}}}
+{"shot": "layout-boundary-options-scroll-probe--proofing-bottom.png"}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "language"}}}
+{"steps": 8}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.wheel", "params": {"x": 320, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 12}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "language", "backstagePage": "options"}}}}
+{"shot": "layout-boundary-options-scroll-probe--language-bottom.png"}

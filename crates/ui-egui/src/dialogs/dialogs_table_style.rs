@@ -149,7 +149,12 @@ fn region_of(st: &TableStyleProps, part: TablePart) -> TableRegion {
 /// The params `table.newStyle` / `table.modifyStyle` take for the dialog's state: only what
 /// changed from `basis`, part by part, so the rest stays inherited.
 pub fn table_style_params(id: Option<&str>, name: &str, based_on: &str, regions: &[TableRegion; 13], basis: &[TableRegion; 13]) -> Value {
-    let mut v = json!({"name": name.trim(), "basedOn": based_on});
+    let mut v = json!({"name": name.trim()});
+    // No base is represented by an empty dialog value, not an empty style name. Omission
+    // preserves the existing base on Modify and the engine's default on New; it does not clear it.
+    if !based_on.is_empty() {
+        v["basedOn"] = json!(based_on);
+    }
     for (((part, _), r), b) in PARTS.iter().zip(regions.iter()).zip(basis.iter()) {
         let ch = region_changes(r, b);
         if ch.as_object().is_some_and(|o| !o.is_empty()) {
@@ -773,5 +778,100 @@ mod tests {
         let after = rules(h.state_mut());
         assert!(after.iter().all(|y| (y - top).abs() > 0.01), "the header row's top edge is gone: {after:?}");
         assert!(after.len() < before.len());
+    }
+
+    /// AUD-023: Table Grid has no base; its preview and OK must work without sending an
+    /// invalid empty style name. A derived style must keep its inherited formatting.
+    #[test]
+    fn modifying_table_styles_with_or_without_a_base_previews_applies_and_undoes() {
+        for derived in [false, true] {
+            let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+            app.run("insert.table", json!({"rows": 3, "cols": 3})).unwrap();
+            let id = if derived {
+                app.run(
+                    "table.newStyle",
+                    json!({"name": "AuditBase", "basedOn": "TableGrid", "wholeTable": {"font": "Liberation Serif", "size": 13},
+                        "headerRow": {"fill": "DDEEFF", "bold": true}}),
+                )
+                .unwrap();
+                app.run("table.newStyle", json!({"name": "AuditChild", "basedOn": "AuditBase"})).unwrap();
+                "AuditChild"
+            } else {
+                "TableGrid"
+            };
+            let original = app.session.doc.clone();
+            let original_style = app.session.doc.styles.get(id).cloned().unwrap();
+            let effective = app.session.doc.styles.table_style(id).unwrap();
+            let undo = app.session.undo_mark();
+            app.dialog = Dialog::open("modifyTableStyle", &mut app);
+            let draft = |app: &WordApp| {
+                let Some(Dialog::TableStyle { id, name, based_on, regions, basis, .. }) = &app.dialog else {
+                    panic!("expected the table style dialog");
+                };
+                let params = table_style_params(id.as_deref(), name, based_on, regions, basis);
+                wordcraft_engine::cmd::table_style::preview(&app.session, &params).expect("the dialog's request must produce a preview")
+            };
+            assert_eq!(draft(&app), effective, "opening preserves the effective style");
+            let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            steps(&mut h);
+            let has_preview = |h: &egui_kittest::Harness<'_, WordApp>| {
+                h.output().shapes.iter().any(|shape| matches!(&shape.shape, egui::Shape::Text(text) if text.galley.text() == "North"))
+            };
+            assert!(has_preview(&h), "the live preview paints sample cells instead of a blank box");
+            h.get_by_label("B").click();
+            steps(&mut h);
+            let preview = draft(h.state());
+            assert_eq!(preview.chr.bold, Some(true));
+            assert!(has_preview(&h), "the changed preview still paints sample cells");
+            assert!(h.state().session.doc.same_content(&original), "previewing does not edit the document");
+            assert_eq!(h.state().session.undo_mark(), undo, "previewing creates no undo entry");
+            h.get_by_label("OK").click();
+            steps(&mut h);
+            assert!(h.state().dialog.is_none(), "OK applies and closes the dialog");
+            let stored = h.state().session.doc.styles.get(id).unwrap();
+            assert_eq!(stored.based_on, original_style.based_on);
+            assert_eq!(stored.chr.bold, Some(true));
+            assert_eq!(h.state().session.doc.styles.table_style(id).unwrap(), preview, "apply matches the preview");
+            if derived {
+                assert_eq!(stored.chr.font, None, "an inherited font is not copied onto the child");
+                assert_eq!(stored.chr.size, None, "an inherited size is not copied onto the child");
+                assert_eq!(stored.table_part(TablePart::FirstRow).fill, None, "header fill remains inherited");
+                assert_eq!(preview.chr.font.as_deref(), Some("Liberation Serif"));
+                assert_eq!(preview.chr.size, Some(13.0));
+                assert_eq!(preview.part(TablePart::FirstRow).fill, Some(Rgb(0xDD, 0xEE, 0xFF)));
+            }
+            h.state_mut().run("edit.undo", json!({})).unwrap();
+            assert!(h.state().session.doc.same_content(&original), "one undo restores the pre-dialog document and style");
+        }
+    }
+
+    /// Omission is not a new way to clear inheritance; invalid explicit names still fail.
+    #[test]
+    fn empty_dialog_base_omits_the_parameter_without_weakening_engine_validation() {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("insert.table", json!({"rows": 2, "cols": 2})).unwrap();
+        app.run("table.newStyle", json!({"name": "AuditChild", "basedOn": "TableGrid"})).unwrap();
+        let regions = table_regions(&app, "AuditChild");
+        let params = table_style_params(Some("AuditChild"), "AuditChild", "", &regions, &regions);
+        assert!(params.get("basedOn").is_none());
+        app.run("table.modifyStyle", params).unwrap();
+        assert_eq!(app.session.doc.styles.get("AuditChild").unwrap().based_on.as_deref(), Some("TableGrid"));
+        let actual_base = table_style_params(Some("AuditChild"), "AuditChild", "TableGrid", &regions, &regions);
+        assert_eq!(actual_base["basedOn"], "TableGrid");
+        let before = app.session.doc.clone();
+        for invalid in ["", " ", "Unknown table style"] {
+            assert!(app.session.run("table.modifyStyle", &json!({"style": "AuditChild", "basedOn": invalid})).is_err());
+            assert!(app.session.doc.same_content(&before));
+        }
+        let new = table_style_params(None, "New without explicit base", "", &Default::default(), &Default::default());
+        assert!(new.get("basedOn").is_none());
+        assert!(wordcraft_engine::cmd::table_style::preview(&app.session, &new).is_some(), "New uses the engine's normal default base");
     }
 }

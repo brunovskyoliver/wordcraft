@@ -477,3 +477,308 @@ fn length_units_follow_the_interface_language() {
     h.run_steps(4);
     assert_eq!(length(72.0), "25,4 mm", "English keeps the English names");
 }
+
+fn responsive_harness(width: f32, theme: &str) -> egui_kittest::Harness<'static, WordApp> {
+    let mut a = app();
+    a.run("ui.language", json!({"value": "en"})).unwrap();
+    a.run("ui.interfaceSize", json!({"percent": 100})).unwrap();
+    a.run("ui.theme", json!({"value": theme})).unwrap();
+    a.run("file.options", json!({"pane": "general"})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(width, 600.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        a,
+    );
+    h.run_steps(4);
+    h
+}
+
+fn choose_compact_category(h: &mut egui_kittest::Harness<'_, WordApp>, pane: &str) {
+    use egui::accesskit::Role;
+    h.get_by_role_and_label(Role::ComboBox, "Options category").scroll_to_me();
+    h.run_steps(8);
+    h.get_by_role_and_label(Role::ComboBox, "Options category").click();
+    h.run_steps(4);
+    // Save is also a Backstage action. Category entries are selectable buttons with a
+    // toggle state; require exactly that accessible entry instead of taking an arbitrary match.
+    {
+        let choices: Vec<_> =
+            h.query_all_by_role_and_label(Role::Button, super::pane_label(pane)).filter(|node| node.accesskit_node().toggled().is_some()).collect();
+        assert_eq!(choices.len(), 1, "the category popup exposes one named selectable entry for {pane}");
+        let choice = choices.first().unwrap();
+        let selected = if h.state().ui.options_pane == pane { egui::accesskit::Toggled::True } else { egui::accesskit::Toggled::False };
+        assert_eq!(choice.accesskit_node().toggled(), Some(selected));
+        choice.click();
+    }
+    h.run_steps(4);
+    assert_eq!(h.state().ui.options_pane, pane);
+}
+
+/// AUD-017: every category fits the Backstage content column, including wrapped text,
+/// fields and actions. The last controls remain reachable through its vertical scroll.
+#[test]
+fn options_categories_fit_compact_windows_and_scroll_to_their_last_controls() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::By;
+    for width in [800.0, 640.0] {
+        for theme in ["light", "dark"] {
+            let mut h = responsive_harness(width, theme);
+            for (pane, last) in [
+                ("display", "Update fields before printing"),
+                ("proofing", "Dictionaries folder:"),
+                ("save", "Leave out the date and time of comments and tracked changes when saving"),
+                ("language", "Automatic follows your system's language. Menus and commands change; your documents don't."),
+                ("accessibility", "Skip citations & bibliography"),
+                ("advanced", "Customize…"),
+                (
+                    "agents",
+                    "Every command is available to scripts and AI agents: run `wordcraft-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel.",
+                ),
+                ("general", "Initials:"),
+            ] {
+                choose_compact_category(&mut h, pane);
+                for role in [Role::Label, Role::CheckBox, Role::ComboBox, Role::TextInput, Role::Button, Role::Slider] {
+                    for node in h.query_all(By::new().role(role)) {
+                        let rect = node.rect();
+                        // The File navigation occupies the left 200 points. Check only Options.
+                        if rect.left() >= 240.0 {
+                            assert!(rect.right() <= width - 39.0, "{width} {theme} {pane} {role:?}: {rect:?} exceeds the content column");
+                        }
+                    }
+                }
+                h.query_all_by_label(last).next_back().expect("last setting exists").scroll_to_me();
+                h.run_steps(8);
+                let rect = h.query_all_by_label(last).next_back().unwrap().rect();
+                assert!(rect.top() >= 30.0 && rect.bottom() <= 570.0, "{width} {theme} {pane}: last control is clipped vertically: {rect:?}");
+                assert!(rect.right() <= width - 39.0, "{pane}: scrolled control is clipped horizontally");
+            }
+        }
+    }
+}
+
+/// Compact category selection and settings use the same commands as the desktop page.
+#[test]
+fn compact_options_controls_change_their_settings() {
+    use egui::accesskit::Role;
+    for width in [800.0, 640.0] {
+        let mut h = responsive_harness(width, "light");
+        let mini = h.state().ui.mini_toolbar;
+        h.get_by_label("Show the mini toolbar when text is selected").click();
+        h.run_steps(4);
+        assert_eq!(h.state().ui.mini_toolbar, !mini);
+
+        let initials = h.state().session.initials.clone();
+        h.get_by_role_and_label(Role::TextInput, "Initials:").scroll_to_me();
+        h.run_steps(8);
+        h.get_by_role_and_label(Role::TextInput, "Initials:").click();
+        h.run_steps(2);
+        h.get_by_role_and_label(Role::TextInput, "Initials:").type_text("Q");
+        h.run_steps(4);
+        assert_ne!(h.state().session.initials, initials);
+        assert!(h.state().session.initials.contains('Q'));
+
+        choose_compact_category(&mut h, "proofing");
+        let capitals = h.state().session.prefs.ignore_uppercase;
+        h.get_by_label("Ignore words in capitals").click();
+        h.run_steps(4);
+        assert_eq!(h.state().session.prefs.ignore_uppercase, !capitals);
+
+        choose_compact_category(&mut h, "save");
+        let privacy = "Remove my name from comments, changes and file properties when saving";
+        h.get_by_label(privacy).scroll_to_me();
+        h.run_steps(8);
+        h.get_by_label(privacy).click();
+        h.run_steps(4);
+        assert!(h.state().session.doc.settings.remove_personal_info);
+
+        choose_compact_category(&mut h, "accessibility");
+        let skip = h.state().session.read_aloud.skip_citations;
+        h.get_by_label("Skip citations & bibliography").scroll_to_me();
+        h.run_steps(8);
+        h.get_by_label("Skip citations & bibliography").click();
+        h.run_steps(4);
+        assert_eq!(h.state().session.read_aloud.skip_citations, !skip);
+
+        choose_compact_category(&mut h, "advanced");
+        h.get_by_role_and_label(Role::ComboBox, "Measurement units:").scroll_to_me();
+        h.run_steps(8);
+        h.get_by_role_and_label(Role::ComboBox, "Measurement units:").click();
+        h.run_steps(4);
+        h.get_by_label("Centimeters").click();
+        h.run_steps(4);
+        assert_eq!(h.state().session.prefs.units, Some(Unit::Centimeters));
+
+        choose_compact_category(&mut h, "language");
+        h.get_by_role_and_label(Role::ComboBox, "Interface language:").click();
+        h.run_steps(4);
+        let automatic = crate::i18n::fmt("Automatic ({language})", &[("language", crate::i18n::system_lang().name())]);
+        h.get_by_label(&automatic).click();
+        h.run_steps(4);
+        assert_eq!(h.state().ui.language, crate::i18n::AUTO);
+    }
+}
+
+/// Reflow preserves the active category and restores the desktop's 170-point sidebar.
+#[test]
+fn options_category_survives_resizing_between_sidebar_and_picker() {
+    use egui::accesskit::Role;
+    let mut h = responsive_harness(1440.0, "dark");
+    h.get_by_role_and_label(Role::Button, "Advanced").click();
+    h.run_steps(4);
+    for width in [800.0, 640.0, 1440.0] {
+        h.set_size(egui::vec2(width, 600.0));
+        h.run_steps(6);
+        assert_eq!(h.state().ui.options_pane, "advanced");
+        if width < 1000.0 {
+            assert!(h.query_by_role_and_label(Role::ComboBox, "Options category").is_some());
+        } else {
+            let row = h.get_by_role_and_label(Role::Button, "Advanced");
+            assert_eq!(row.rect().size(), egui::vec2(170.0, 30.0));
+            assert_eq!(row.accesskit_node().toggled(), Some(egui::accesskit::Toggled::True));
+            assert!(h.query_by_role_and_label(Role::ComboBox, "Options category").is_none());
+        }
+    }
+}
+
+/// The compact window at 150% has only about 130 logical points for settings. A Display
+/// grid must not widen the later animation checkbox, template field or explanatory text.
+#[test]
+fn advanced_options_fit_the_scaled_column_and_keep_lower_controls_usable() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::By;
+    for theme in ["light", "dark"] {
+        let mut h = responsive_harness(640.0, theme);
+        h.state_mut().run("ui.interfaceSize", json!({"percent": 150})).unwrap();
+        h.run_steps(8);
+        choose_compact_category(&mut h, "advanced");
+        let screen = h.ctx.input(|i| i.content_rect());
+        assert!(screen.width() < 430.0, "exercise the scaled logical viewport");
+        let column = h.get_by_role_and_label(Role::ComboBox, "Options category").rect();
+        assert!(column.width() < 150.0, "exercise a column narrower than the old 200-point fields");
+        let check_bounds = |h: &egui_kittest::Harness<'_, WordApp>| {
+            for role in [Role::Label, Role::CheckBox, Role::ComboBox, Role::TextInput, Role::Button] {
+                for node in h.query_all(By::new().role(role)) {
+                    let rect = node.rect();
+                    if rect.left() >= column.left() - 1.0 {
+                        assert!(rect.right() <= column.right() + 1.0, "{theme} {role:?}: {rect:?} exceeds measured settings column {column:?}");
+                    }
+                }
+            }
+        };
+        check_bounds(&h);
+        for label in ["Measurement units:", "Region:"] {
+            h.get_by_role_and_label(Role::ComboBox, label).scroll_to_me();
+            h.run_steps(8);
+            assert!(screen.contains_rect(h.get_by_role_and_label(Role::ComboBox, label).rect()));
+            check_bounds(&h);
+        }
+        h.get_by_role_and_label(Role::ComboBox, "Measurement units:").scroll_to_me();
+        h.run_steps(8);
+        h.get_by_role_and_label(Role::ComboBox, "Measurement units:").click();
+        h.run_steps(4);
+        h.get_by_label("Centimeters").click();
+        h.run_steps(4);
+        assert_eq!(h.state().session.prefs.units, Some(Unit::Centimeters));
+
+        let animation = "Animate the caret (it glides and fades)";
+        let caret = h.state().ui.caret_animation;
+        h.get_by_label(animation).scroll_to_me();
+        h.run_steps(8);
+        assert!(screen.contains_rect(h.get_by_label(animation).rect()));
+        h.get_by_label(animation).click();
+        h.run_steps(4);
+        assert_eq!(h.state().ui.caret_animation, !caret);
+        check_bounds(&h);
+
+        let note = "File › New lists the .dotx and .dotm templates here under Personal; Save as Word Template starts here.";
+        h.get_by_role_and_label(Role::TextInput, "User templates:").scroll_to_me();
+        h.run_steps(8);
+        assert!(screen.contains_rect(h.get_by_role_and_label(Role::TextInput, "User templates:").rect()));
+        h.get_by_label(note).scroll_to_me();
+        h.run_steps(8);
+        let text = h
+            .output()
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Text(text) if text.galley.text() == note => Some((s.clip_rect, text)),
+                _ => None,
+            })
+            .expect("the complete template help is painted");
+        assert!(text.1.galley.rows.len() > 1, "help wraps to the measured column");
+        assert!(text.0.expand(1.0).contains_rect(text.1.visual_bounding_rect()), "help must be fully visible after scrolling to it");
+        check_bounds(&h);
+
+        let last = || h.query_all_by_role_and_label(Role::Button, "Customize…").next_back().unwrap();
+        last().scroll_to_me();
+        h.run_steps(8);
+        let last = h.query_all_by_role_and_label(Role::Button, "Customize…").next_back().unwrap().rect();
+        assert!(screen.contains_rect(last));
+        check_bounds(&h);
+        assert!(!h.state().session.dirty, "changing application options must not edit the document");
+    }
+}
+
+/// General must not squeeze short labels into the Grid's default minimum column width.
+#[test]
+fn personalization_labels_remain_whole_and_fields_fit_at_each_layout_boundary() {
+    use egui::accesskit::Role;
+    for (width, percent) in [(640.0, 100), (640.0, 150), (800.0, 100), (1440.0, 100)] {
+        let mut h = responsive_harness(width, "dark");
+        h.state_mut().run("ui.interfaceSize", json!({"percent": percent})).unwrap();
+        h.run_steps(8);
+        for label in ["User name:", "Initials:"] {
+            h.get_by_role_and_label(Role::TextInput, label).scroll_to_me();
+            h.run_steps(8);
+            let field = h.get_by_role_and_label(Role::TextInput, label).rect();
+            assert!(h.ctx.input(|i| i.content_rect()).contains_rect(field), "{width}/{percent}: {label} field is visible");
+            let (clip, text) = h
+                .output()
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) if text.galley.text() == label => Some((shape.clip_rect, text)),
+                    _ => None,
+                })
+                .expect("personalization label is painted");
+            assert_eq!(text.galley.rows.len(), 1, "{width}/{percent}: {label} must not fragment");
+            assert!(clip.expand(1.0).contains_rect(text.visual_bounding_rect()), "{label} remains fully visible");
+        }
+    }
+}
+
+/// The slider's numeric field must fit too; a wide slider must not widen the next checkbox.
+#[test]
+fn accessibility_speed_and_citations_fit_the_scaled_column_and_remain_usable() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::By;
+    for theme in ["light", "dark"] {
+        let mut h = responsive_harness(640.0, theme);
+        h.state_mut().run("ui.interfaceSize", json!({"percent": 150})).unwrap();
+        h.run_steps(8);
+        choose_compact_category(&mut h, "accessibility");
+        let column = h.get_by_role_and_label(Role::ComboBox, "Options category").rect();
+        assert!(column.width() < 150.0);
+        h.get_by_role_and_label(Role::Slider, "Speed").scroll_to_me();
+        h.run_steps(8);
+        for role in [Role::Slider, Role::SpinButton, Role::CheckBox, Role::Label] {
+            for node in h.query_all(By::new().role(role)) {
+                if node.rect().left() >= column.left() - 1.0 {
+                    assert!(node.rect().right() <= column.right() + 1.0, "{theme} {role:?}: {:?} exceeds {column:?}", node.rect());
+                }
+            }
+        }
+        let label = "Skip citations & bibliography";
+        h.get_by_role_and_label(Role::CheckBox, label).scroll_to_me();
+        h.run_steps(8);
+        let control = h.get_by_role_and_label(Role::CheckBox, label).rect();
+        assert!(h.ctx.input(|i| i.content_rect()).contains_rect(control));
+        let before = h.state().session.read_aloud.skip_citations;
+        h.get_by_role_and_label(Role::CheckBox, label).click();
+        h.run_steps(4);
+        assert_eq!(h.state().session.read_aloud.skip_citations, !before);
+    }
+}

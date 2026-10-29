@@ -102,6 +102,7 @@ pub(crate) fn show(app: &mut WordApp, ctx: &egui::Context) {
         let mut open = true;
         let mut close = false;
         egui::Window::new(tl!("Check for Updates"))
+            .enabled(!crate::modal_input::background_blocked(app))
             .open(&mut open)
             .resizable(false)
             .collapsible(false)

@@ -3,6 +3,197 @@ use wordcraft_doc::Pos;
 use wordcraft_doc::props::Align;
 use wordcraft_engine::Session;
 
+/// UI-AUDIT: invalid Size text keeps the entire draft and does not apply other choices.
+#[test]
+fn font_dialog_refuses_invalid_size_without_applying_other_fields() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    for invalid in ["0", "-1", "1639", "abc", "NaN", "inf", ""] {
+        let mut h = validation_dialog("font");
+        let selection = h.state().session.sel.clone();
+        let before = serde_json::to_value(&h.state().session.doc).unwrap();
+        set_text_field(&mut h, "Size:", invalid);
+        h.get_by_role_and_label(Role::CheckBox, "Italic").click();
+        h.run_steps(3);
+        h.get_by_role_and_label(Role::Button, "OK").click();
+        h.run_steps(4);
+        let Some(Dialog::Font { size, italic, message, .. }) = h.state().dialog.as_ref() else { panic!("invalid size closed Font") };
+        assert_eq!(size, invalid);
+        assert!(*italic && !message.is_empty());
+        assert!(h.query_by_label(message).is_some(), "validation error is visible");
+        assert!(h.get_by_role_and_label(Role::TextInput, "Size:").is_focused());
+        assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+        assert_eq!(h.state().session.sel, selection);
+        assert!(!h.state().session.dirty && !h.state().session.can_undo());
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+    }
+}
+
+#[test]
+fn font_dialog_corrects_invalid_size_in_one_undo_step() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("font");
+    let selection = h.state().session.sel.clone();
+    set_text_field(&mut h, "Size:", "abc");
+    h.get_by_role_and_label(Role::CheckBox, "Italic").click();
+    h.run_steps(3);
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(3);
+    assert!(h.state().dialog.is_some());
+    set_text_field(&mut h, "Size:", "12.3");
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(3);
+    assert!(h.state().dialog.is_none());
+    assert_eq!(h.state().session.sel, selection);
+    assert_eq!(h.state().session.undo_depth(), 1);
+    let state = h.state_mut().session.run("format.state", &json!({})).unwrap();
+    assert_eq!(state["size"], json!(12.5));
+    assert_eq!(state["italic"], json!(true));
+    h.state_mut().run("edit.undo", json!({})).unwrap();
+    let state = h.state_mut().session.run("format.state", &json!({})).unwrap();
+    assert_eq!(state["size"], json!(12.0));
+    assert_eq!(state["italic"], json!(false));
+}
+
+#[test]
+fn font_dialog_mutually_excludes_vertical_alignment() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    for (old, new, label) in [("superscript", "subscript", "Subscript"), ("subscript", "superscript", "Superscript")] {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Alpha Beta")), crate::Services::default());
+        app.run("select.text", json!({"text": "Alpha"})).unwrap();
+        app.run(&format!("format.{old}"), json!({})).unwrap();
+        let selection = app.session.sel.clone();
+        let depth = app.session.undo_depth();
+        app.run("ui.dialog", json!({"name": "font"})).unwrap();
+        let mut h = app_harness(app);
+        h.run_steps(4);
+        h.get_by_role_and_label(Role::CheckBox, label).click();
+        h.run_steps(3);
+        let Some(Dialog::Font { sup, sub, .. }) = h.state().dialog.as_ref() else { panic!("Font closed") };
+        assert_ne!(sup, sub, "only the requested vertical alignment is selected");
+        h.get_by_role_and_label(Role::Button, "OK").click();
+        h.run_steps(3);
+        let state = h.state_mut().session.run("format.state", &json!({})).unwrap();
+        assert_eq!(state[new], json!(true));
+        assert_eq!(state[old], json!(false));
+        assert_eq!(h.state().session.sel, selection);
+        assert_eq!(h.state().session.undo_depth(), depth + 1);
+        h.state_mut().run("edit.undo", json!({})).unwrap();
+        assert_eq!(h.state_mut().session.run("format.state", &json!({})).unwrap()[old], json!(true));
+    }
+}
+
+#[test]
+fn font_dialog_preserves_untouched_fractional_and_mixed_sizes() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    for mixed in [false, true] {
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Alpha Beta")), crate::Services::default());
+        // Imported properties can have finer precision than new editing commands accept.
+        let at = Pos::body(0, 0);
+        app.session.doc.format_range(&at, &Pos::body(0, 5), &|p| p.size = Some(12.3)).unwrap();
+        if mixed {
+            app.run("select.all", json!({})).unwrap();
+        } else {
+            app.run("select.text", json!({"text": "Alpha"})).unwrap();
+        }
+        app.run("ui.dialog", json!({"name": "font"})).unwrap();
+        if mixed {
+            assert!(matches!(app.dialog.as_ref(), Some(Dialog::Font { size, .. }) if size.is_empty()));
+        }
+        let mut h = app_harness(app);
+        h.run_steps(4);
+        h.get_by_role_and_label(Role::CheckBox, "Italic").click();
+        h.run_steps(3);
+        h.get_by_role_and_label(Role::Button, "OK").click();
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        let p = h.state().session.doc.para_at(&at).unwrap();
+        assert_eq!(p.props_of_char(0).size, Some(12.3), "the untouched imported size is preserved");
+        assert_eq!(p.props_of_char(6).size, None, "an untouched inherited size remains inherited");
+    }
+}
+
+#[test]
+fn hyperlink_dialog_keeps_invalid_draft_and_restores_address_focus() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    for invalid in [String::new(), "u".repeat(4097)] {
+        let mut h = validation_dialog("link");
+        let selection = h.state().session.sel.clone();
+        let before = serde_json::to_value(&h.state().session.doc).unwrap();
+        set_text_field(&mut h, "Text to display:", "Draft display title");
+        set_text_field(&mut h, "Address:", &invalid);
+        h.get_by_role_and_label(Role::Button, "OK").click();
+        h.run_steps(4);
+        let Some(Dialog::Link { url, text, message, .. }) = h.state().dialog.as_ref() else { panic!("invalid link closed the dialog") };
+        assert_eq!(url, &invalid);
+        assert_eq!(text, "Draft display title");
+        assert!(!message.is_empty());
+        assert!(h.query_by_label(message).is_some(), "the engine's refusal is visible");
+        assert!(h.get_by_role_and_label(Role::TextInput, "Address:").is_focused());
+        assert_eq!(h.state().session.sel, selection);
+        assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+        assert!(!h.state().session.dirty && !h.state().session.can_undo());
+        h.get_by_label("Cancel").click();
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+    }
+}
+
+#[test]
+fn hyperlink_dialog_applies_corrected_address_in_one_undo_step() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("link");
+    let selection = h.state().session.sel.clone();
+    set_text_field(&mut h, "Address:", "");
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(3);
+    assert!(h.state().dialog.is_some());
+    set_text_field(&mut h, "Address:", "https://example.invalid/note");
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(3);
+    assert!(h.state().dialog.is_none());
+    assert_eq!(h.state().session.sel, selection);
+    assert_eq!(h.state().session.undo_depth(), 1);
+    let p = h.state().session.doc.para_at(&Pos::body(0, 0)).unwrap();
+    assert_eq!(p.props_of_char(0).link.as_deref(), Some("https://example.invalid/note"));
+    h.state_mut().run("edit.undo", json!({})).unwrap();
+    assert!(h.state().session.doc.para_at(&Pos::body(0, 0)).unwrap().props_of_char(0).link.is_none());
+}
+
+#[test]
+fn font_dialog_retains_draft_when_engine_refuses_formatting() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("font");
+    set_text_field(&mut h, "Size:", "14");
+    h.state_mut().run("review.restrict", json!({"mode": "readOnly"})).unwrap();
+    let before = serde_json::to_value(&h.state().session.doc).unwrap();
+    let depth = h.state().session.undo_depth();
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(4);
+    assert!(matches!(h.state().dialog.as_ref(), Some(Dialog::Font { size, message, .. }) if size == "14" && !message.is_empty()));
+    assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before);
+    assert_eq!(h.state().session.undo_depth(), depth);
+}
+
+fn validation_dialog(name: &str) -> egui_kittest::Harness<'static, WordApp> {
+    let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Alpha Beta")), crate::Services::default());
+    app.run("select.text", json!({"text": "Alpha"})).unwrap();
+    app.run("ui.dialog", json!({"name": name})).unwrap();
+    let mut h = app_harness(app);
+    h.run_steps(4);
+    h
+}
+
 /// Opening a dialog must stop document input even before a field in it takes focus.
 #[test]
 fn dialogs_keep_document_text_and_selection_until_cancelled() {
@@ -723,13 +914,13 @@ fn font_dialog_sets_the_asian_and_latin_fonts_separately() {
     let Dialog::Font { asian, font_ea, .. } = &mut d else { panic!() };
     assert!(*asian, "Chinese text in the selection shows the Asian text font box");
     *font_ea = "SimSun".into();
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     assert_eq!(fonts(&app), (latin, Some("SimSun".into())));
     let Some(mut d) = Dialog::open("font", &mut app) else { panic!() };
     let Dialog::Font { font, font_ea, .. } = &mut d else { panic!() };
     assert_eq!(font_ea, "SimSun");
     *font = "Georgia".into();
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     assert_eq!(fonts(&app), (Some("Georgia".into()), Some("SimSun".into())));
     // One undo step each.
     let _ = app.run("edit.undo", json!({}));
@@ -834,7 +1025,7 @@ fn font_dialog_ok_keeps_what_the_user_left_alone() {
         assert_eq!(*spacing, 2.0);
         *size = "14".into();
     }
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     let c = app.session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).map(|p| p.props_of_char(0).clone()).unwrap_or_default();
     assert_eq!(c.size, Some(14.0));
     assert_eq!((c.small_caps, c.caps, c.hidden, c.spacing), (Some(true), Some(true), Some(true), Some(2.0)));
@@ -844,7 +1035,7 @@ fn font_dialog_ok_keeps_what_the_user_left_alone() {
     if let Dialog::Font { small_caps, .. } = &mut d {
         *small_caps = false;
     }
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     let c = app.session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).map(|p| p.props_of_char(0).clone()).unwrap_or_default();
     assert_eq!((c.small_caps, c.caps, c.size), (Some(false), Some(true), Some(14.0)));
 }
@@ -863,7 +1054,7 @@ fn font_dialog_sets_kerning_for_fonts() {
     assert_eq!((*on, *kern_at), (Some(false), 12.0), "off, offering 12 pt");
     *on = Some(true);
     *kern_at = 16.0;
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     assert_eq!((kern(&app, 0), kern(&app, 7)), (Some(16.0), Some(16.0)));
     let _ = app.run("edit.undo", json!({}));
     assert_eq!(kern(&app, 0), Some(0.0), "one undo step");
@@ -872,7 +1063,7 @@ fn font_dialog_sets_kerning_for_fonts() {
     let Dialog::Font { kern: on, kern_at, .. } = &mut d else { panic!() };
     assert_eq!((*on, *kern_at), (Some(true), 16.0));
     *on = Some(false);
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     assert_eq!((kern(&app, 0), kern(&app, 7)), (Some(0.0), Some(0.0)));
     let _ = app.run("select.text", json!({"text": "Kerned"}));
     let _ = app.run("format.set", json!({"props": {"kern": 14}}));
@@ -881,7 +1072,7 @@ fn font_dialog_sets_kerning_for_fonts() {
     let Dialog::Font { kern: on, size, .. } = &mut d else { panic!() };
     assert_eq!(*on, None, "mixed kerning shows neither on nor off");
     *size = "13".into();
-    apply_font(&mut app, &d);
+    apply_font(&mut app, &d).unwrap();
     assert_eq!((kern(&app, 0), kern(&app, 7)), (Some(14.0), Some(0.0)), "each run keeps its kerning");
 }
 
@@ -1763,4 +1954,23 @@ fn goto_page_and_bookmark_release_focus_to_the_document() {
         assert!(h.state().dialog.is_none());
         assert_eq!(h.state().session.sel, selection, "Escape closes Go To without moving the caret");
     }
+}
+
+/// Receipt/replay helpers stay available to automation without offering broken no-parameter actions.
+#[test]
+fn synonym_helpers_are_registered_but_not_offered_in_command_pickers() {
+    let app = app_with("small");
+    let described = app.session.registry.describe();
+    for id in ["review.replaceSynonym", "review.replaceSynonymAtSelection", "view.thesaurusPane", "view.selectionPane"] {
+        let helper = app.session.registry.get(id).unwrap();
+        assert!(!command_matches(helper, "synonym"));
+        assert!(!command_matches(helper, id));
+        assert!(!dialogs_keyboard::commands(&app, "").iter().any(|(row, _)| *row == id));
+        assert!(!dialogs_keyboard::matching_commands(&app, "", id).iter().any(|(row, _)| row == id));
+        assert!(described.as_array().unwrap().iter().any(|item| item["id"] == id));
+    }
+    let thesaurus_matches: Vec<_> = app.session.registry.all().iter().filter(|spec| command_matches(spec, "thesaurus")).map(|spec| spec.id).collect();
+    assert_eq!(thesaurus_matches, ["review.thesaurus"], "search opens the user-facing lookup with focus, not a raw visibility toggle");
+    assert!(command_matches(app.session.registry.get("arrange.selectionPane").unwrap(), "selection pane"));
+    assert!(dialogs_keyboard::commands(&app, "Review").iter().any(|(id, _)| *id == "review.thesaurus"));
 }

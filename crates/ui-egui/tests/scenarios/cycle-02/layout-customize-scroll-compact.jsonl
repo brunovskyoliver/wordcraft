@@ -1,0 +1,55 @@
+{"width": 640, "height": 480, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.interfaceSize", "params": {"percent": 100}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "display"}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "display", "backstagePage": "options"}}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "display", "backstagePage": "options"}}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "save"}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "save", "backstagePage": "options"}}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "save", "backstagePage": "options"}}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "accessibility"}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "accessibility", "backstagePage": "options"}}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "accessibility", "backstagePage": "options"}}}}
+{"method": "engine.execute", "params": {"command": "file.options", "params": {"pane": "agents"}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": 10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "agents", "backstagePage": "options"}}}}
+{"method": "ui.wheel", "params": {"x": 565, "y": 240, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.inspect", "expect": {"result": {"dirty": false, "ui": {"optionsPane": "agents", "backstagePage": "options"}}}}
+{"method": "engine.execute", "params": {"command": "ui.backstage", "params": {"value": false}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeRibbon"}}, "expect": {"result": {"dialog": "customizeRibbon"}}}
+{"steps": 12}
+{"method": "ui.move", "params": {"x": 100, "y": 20}}
+{"steps": 12}
+{"shot": "layout-customize-scroll-compact--customizeRibbon-top.png"}
+{"method": "ui.wheel", "params": {"x": 300, "y": 445, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.move", "params": {"x": 100, "y": 20}}
+{"steps": 12}
+{"shot": "layout-customize-scroll-compact--customizeRibbon-bottom.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog", "params": {}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "customizeQuickAccess"}}, "expect": {"result": {"dialog": "customizeRibbon"}}}
+{"steps": 12}
+{"method": "ui.move", "params": {"x": 100, "y": 20}}
+{"steps": 12}
+{"shot": "layout-customize-scroll-compact--customizeQuickAccess-top.png"}
+{"method": "ui.wheel", "params": {"x": 300, "y": 445, "dy": -10000, "unit": "point"}}
+{"steps": 20}
+{"method": "ui.move", "params": {"x": 100, "y": 20}}
+{"steps": 12}
+{"shot": "layout-customize-scroll-compact--customizeQuickAccess-bottom.png"}
+{"method": "engine.execute", "params": {"command": "ui.closeDialog", "params": {}}}

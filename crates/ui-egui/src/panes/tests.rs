@@ -275,6 +275,8 @@ fn pane_bodies_fit_the_narrowest_pane() {
         Pane::FormatShape,
         Pane::RestrictEditing,
         Pane::Comments,
+        Pane::Selection,
+        Pane::Thesaurus,
     ];
     let widths = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
     let seen = widths.clone();
@@ -413,4 +415,106 @@ fn built_in_styles_grey_out_delete_in_the_styles_pane() {
     }
     assert!(delete_is_disabled("Normal"), "the built-in style's Delete is greyed out");
     assert!(!delete_is_disabled("Callout"), "the custom style's Delete stays enabled");
+}
+
+/// AUD-010: the enabled Layout command must expose its results and rows must select objects.
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn selection_pane_ribbon_opens_and_rows_select_live_objects() {
+    use egui_kittest::kittest::Queryable;
+    use serde_json::json;
+    use wordcraft_engine::cmd::objects::object_selection;
+
+    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    app.run("insert.shape", json!({"kind": "rectangle"})).unwrap();
+    app.run("select.collapse", json!({"end": true})).unwrap();
+    app.run("insert.shape", json!({"kind": "ellipse"})).unwrap();
+    app.run("ui.tab", json!({"tab": "Layout"})).unwrap();
+    let before = app.session.sel.clone();
+    let dirty = app.session.dirty;
+    let mut h = pane_harness(app);
+    h.get_by_label("Selection Pane").click();
+    h.run_steps(4);
+    assert!(h.state().session.view.selection_pane);
+    assert_eq!(h.state().session.sel, before, "opening does not change object selection");
+    assert_eq!(h.state().session.dirty, dirty);
+    h.get_by_label("Move Pane: Selection Pane");
+    h.get_by_label("Rectangle 1").click();
+    h.run_steps(4);
+    let first = object_selection(&h.state().session).unwrap().0;
+    h.get_by_label("Ellipse 2").click();
+    h.run_steps(4);
+    let second = object_selection(&h.state().session).unwrap().0;
+    assert_ne!(first, second, "each row selects its own object");
+    h.state_mut().session.run("select.objects", &json!({"index": 1})).unwrap();
+    assert_eq!(object_selection(&h.state().session).unwrap().0, second, "the row matches the shared selection command");
+
+    h.get_by_label("Rectangle 1").click();
+    h.run_steps(4);
+    h.state_mut().run("text.delete", json!({})).unwrap();
+    h.run_steps(4);
+    h.get_by_label("Ellipse 1").click();
+    h.run_steps(4);
+    let remaining = h.state_mut().session.run("arrange.selectionPane", &json!({})).unwrap();
+    assert_eq!(remaining.as_array().unwrap().len(), 1);
+    assert_eq!(remaining[0]["pos"], wordcraft_engine::cmd::pos_json(&object_selection(&h.state().session).unwrap().0));
+    let selected = h.state().session.sel.clone();
+    super::host::apply(h.state_mut(), craft_ui::panes::PaneRequest::Close(Pane::Selection));
+    h.run_steps(4);
+    assert!(!h.state().session.view.selection_pane);
+    assert_eq!(h.state().session.sel, selected, "closing keeps selection");
+}
+
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn selection_pane_empty_state_and_agent_query_remain_read_only() {
+    use egui_kittest::kittest::Queryable;
+    use serde_json::json;
+
+    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    let before = app.session.sel.clone();
+    assert_eq!(app.execute("arrange.selectionPane", json!({})).unwrap(), json!([]));
+    assert!(!app.session.view.selection_pane, "agent queries do not open UI");
+    app.run("arrange.selectionPane", json!({})).unwrap();
+    let mut h = pane_harness(app);
+    h.get_by_label("No objects in the document body.");
+    assert_eq!(h.state().session.sel, before);
+    assert!(!h.state().session.dirty);
+    assert_eq!(h.state_mut().execute("arrange.selectionPane", json!({})).unwrap(), json!([]));
+    assert!(h.state().session.view.selection_pane, "agent queries also leave an open pane alone");
+    h.state_mut().run("arrange.selectionPane", json!({})).unwrap();
+    h.run_steps(4);
+    assert!(!h.state().session.view.selection_pane, "the user command toggles the pane closed");
+    assert_eq!(h.state().session.sel, before);
+    assert!(!h.state().session.dirty);
+}
+
+/// Rendering must not dispatch the query through Session::run and consume a pending undo join.
+#[test]
+fn selection_pane_draws_preserve_pending_undo_and_selection() {
+    use serde_json::json;
+
+    let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    app.run("insert.shape", json!({"kind": "rectangle"})).unwrap();
+    let original = app.session.doc.clone();
+    app.run("shape.fill", json!({"color": "112233"})).unwrap();
+    let selected = app.session.sel.clone();
+    let dirty = app.session.dirty;
+    let listed = wordcraft_engine::cmd::objects::selection_objects(&app.session);
+    assert_eq!(json!(listed), app.execute("arrange.selectionPane", json!({})).unwrap(), "the pane and command share enumeration");
+    app.session.join_next_undo();
+    let ctx = egui::Context::default();
+    crate::theme::install_fonts(&ctx);
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(300.0, 500.0));
+    for _ in 0..4 {
+        ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| {
+            Content { app: &mut app }.body(ui, &Pane::Selection);
+        })
+        .drop_without_applying_deltas();
+    }
+    assert_eq!(app.session.sel, selected);
+    assert_eq!(app.session.dirty, dirty);
+    app.run("shape.fill", json!({"color": "445566"})).unwrap();
+    app.run("edit.undo", json!({})).unwrap();
+    assert!(app.session.doc.same_content(&original), "one undo restores both fills after repeated pane draws");
 }

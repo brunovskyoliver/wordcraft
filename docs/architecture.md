@@ -1,8 +1,8 @@
 # WordCraft architecture
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** minor (`proof` is per language: English and Polish; previously major: first committed version; `plan/architecture.md` is local-only) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **Last reviewed:** 2026-10-29 (command presentation only) · **Last updated:** 2026-10-29 · **Change:** minor, UI-AUDIT-002 pane queries and replay metadata. Baseline layer sizes and test counts below are historical. **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4.
 
-How WordCraft is built today (origin/main `40c5d51`). The longer design notes in
+Baseline architecture recorded at origin/main `40c5d51`, with later scoped updates below. The longer design notes in
 `plan/architecture.md` are gitignored and local to the original author's machine; this file is the
 committed, current summary. Rules for working in the code are in [`AGENTS.md`](../AGENTS.md).
 
@@ -48,6 +48,16 @@ winit or rfd.
    an egui/wgpu canvas; PDF export walks the same display list through `pdf`.
 5. **Save:** `engine::io` picks a writer by extension.
 
+## Command presentation
+
+Commands may use `CommandSpec::automation_only()` to remain callable by id while being omitted
+from Search Commands and keyboard/ribbon customization. UI-AUDIT-002 applies this to the
+receipt/replay synonym actions and the raw Selection/Thesaurus visibility toggles. User-facing
+Selection Pane and Thesaurus actions handle presentation; their engine queries remain read-only.
+The UI reads typed object and thesaurus queries while painting, without dispatching commands
+that would consume pending undo/IME state. Replacement validation and protection remain in the
+engine. Successful synonym replacement records a relative replay action after protection checks.
+
 ## Testing and gates
 
 - 821 `#[test]` functions and 10 property-test blocks: model, layout, DOCX round-trip and hostile
@@ -64,5 +74,6 @@ winit or rfd.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-29 | minor | UI-AUDIT-002: command presentation metadata, immutable pane queries and validated synonym replay; baseline layer sizes not remeasured |
 | 2026-10-10 | minor | `proof`: proofing languages (English, Polish), affix engine, Polish patterns; layout and engine route each run by its language |
 | 2026-10-10 | major | First committed architecture doc, from the crates' sources and `AGENTS.md` |

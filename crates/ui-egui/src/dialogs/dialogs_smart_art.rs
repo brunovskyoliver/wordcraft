@@ -385,7 +385,7 @@ pub fn text_pane(app: &mut WordApp, ui: &mut Ui) {
                         app.smart_art_typing = Some(i);
                     }
                 }
-                if r.lost_focus() && ui.input(|inp| inp.key_pressed(egui::Key::Enter)) && g.items.len() < MAX_ITEMS {
+                if r.lost_focus() && crate::modal_input::key_input(ui, |inp| inp.key_pressed(egui::Key::Enter)) && g.items.len() < MAX_ITEMS {
                     app.smart_art_typing = None;
                     if app.run("smartArt.addShape", json!({"after": i})).is_ok() {
                         // The new item comes after this one and the items under it.

@@ -110,8 +110,70 @@ pub(super) fn suggestions(s: &mut Session, v: &Value) -> CmdResult {
     }
 }
 
-/// A tiny built-in thesaurus of common words (our own list).
-pub(super) fn thesaurus(s: &mut Session, v: &Value) -> CmdResult {
+/// A lookup result; a target remembers the document word independently of the query.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ThesaurusLookup {
+    pub word: String,
+    pub synonyms: Vec<String>,
+    pub target: Option<ThesaurusTarget>,
+}
+
+/// A replacement receipt. Re-derive it before editing so stale or forged ranges cannot replace
+/// another word. The body epoch also rejects receipts from before Undo/Redo, which can restore a revision.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThesaurusTarget {
+    document: u64,
+    revision: u64,
+    body_epoch: u64,
+    selection: Selection,
+    start: Pos,
+    end: Pos,
+    text: String,
+}
+
+impl ThesaurusTarget {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn is_current(&self, s: &Session) -> bool {
+        word_target(s).as_ref() == Some(self)
+    }
+}
+
+fn word_target(s: &Session) -> Option<ThesaurusTarget> {
+    if s.column_segments().is_some() || s.cell_range().is_some() || s.math.is_some() || crate::cmd::objects::object_selection(s).is_some() {
+        return None;
+    }
+    let (mut a, mut b) = s.sel.ordered();
+    if a.story != b.story || a.path != b.path {
+        return None;
+    }
+    let para = s.doc.para_at(&a)?;
+    if s.sel.is_collapsed() {
+        (a.off, b.off) = para.word_at(a.off);
+    }
+    let raw = para.text.get(a.off..b.off)?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.len() > 256 || !trimmed.chars().all(wordcraft_doc::bidi::is_word_char) {
+        return None;
+    }
+    a.off = a.off.checked_add(raw.len() - raw.trim_start().len())?;
+    b.off = a.off.checked_add(trimmed.len())?;
+    Some(ThesaurusTarget {
+        document: s.document_id(),
+        revision: s.rev(),
+        body_epoch: s.ime_body_epoch(),
+        selection: s.sel.clone(),
+        start: a,
+        end: b,
+        text: trimmed.into(),
+    })
+}
+
+/// A tiny built-in English thesaurus of common words (our own list).
+fn synonyms(word: &str) -> Vec<String> {
     const T: &[(&str, &[&str])] = &[
         ("good", &["fine", "excellent", "decent", "solid", "worthy"]),
         ("bad", &["poor", "inferior", "faulty", "unpleasant"]),
@@ -143,15 +205,64 @@ pub(super) fn thesaurus(s: &mut Session, v: &Value) -> CmdResult {
         ("shared", &["common", "joint", "communal", "mutual"]),
         ("community", &["group", "society", "collective", "circle"]),
     ];
-    let word = match p::str(v, "word") {
-        Some(w) => w.to_lowercase(),
-        None => {
-            let f = s.sel.focus.clone();
-            let p = s.doc.para_at(&f).ok_or_else(|| CmdError::Failed("no word".into()))?;
-            let (a, b) = p.word_at(f.off);
-            p.text.get(a..b).unwrap_or("").trim().to_lowercase()
-        }
-    };
-    let syn = T.iter().find(|(w, _)| *w == word).map(|(_, l)| l.to_vec()).unwrap_or_default();
-    Ok(json!({"word": word, "synonyms": syn}))
+    T.iter().find(|(w, _)| *w == word).map(|(_, list)| list.iter().map(|w| (*w).into()).collect()).unwrap_or_default()
+}
+
+/// Query without dispatch: drawing a pane never consumes undo-join or IME command state.
+pub fn thesaurus_lookup(s: &Session, requested: Option<&str>) -> ThesaurusLookup {
+    let target = word_target(s);
+    // Bound direct callers too; a long query is an ordinary no-result lookup, not an allocation proportional to a document.
+    let source = requested.or_else(|| target.as_ref().map(|t| t.text.as_str())).unwrap_or("").trim();
+    let word = source.chars().take(256).collect::<String>().to_lowercase();
+    let synonyms = if source.len() <= 256 { synonyms(&word) } else { Vec::new() };
+    ThesaurusLookup { word, synonyms, target }
+}
+
+pub(super) fn thesaurus(s: &mut Session, v: &Value) -> CmdResult {
+    if v.get("word").is_some_and(|v| !v.is_string()) {
+        return Err(CmdError::Params("`word` must be text".into()));
+    }
+    if p::str(v, "word").is_some_and(|w| w.len() > 256) {
+        return Err(CmdError::Params("the lookup word must be at most 256 bytes".into()));
+    }
+    Ok(json!(thesaurus_lookup(s, p::str(v, "word"))))
+}
+
+pub(super) fn synonym_replacement_enabled(s: &Session) -> Option<&'static str> {
+    word_target(s).is_none().then_some("select a word in ordinary text")
+}
+
+pub(super) fn replace_synonym(s: &mut Session, v: &Value) -> CmdResult {
+    let supplied = v.get("target").ok_or_else(|| CmdError::Params("`target` is required".into()))?;
+    // Compare with a freshly derived bounded receipt instead of deserializing caller-supplied
+    // paths or text. No caller-provided range becomes an editing target.
+    let target = word_target(s).ok_or_else(|| CmdError::Params("select a single word to replace".into()))?;
+    if supplied != &json!(&target) {
+        return Err(CmdError::Params("the document or selection changed; look up the word again".into()));
+    }
+    apply_synonym(s, target, synonym_text(v)?)
+}
+
+/// Relative replay is a separate command: a stale receipt is never silently retargeted.
+pub(super) fn replace_synonym_at_selection(s: &mut Session, v: &Value) -> CmdResult {
+    if v.get("target").is_some() {
+        return Err(CmdError::Params("use review.replaceSynonym to validate an explicit target".into()));
+    }
+    let target = word_target(s).ok_or_else(|| CmdError::Params("select a single word to replace".into()))?;
+    apply_synonym(s, target, synonym_text(v)?)
+}
+
+fn synonym_text(v: &Value) -> Result<&str, CmdError> {
+    let replacement = p::req_str(v, "text")?;
+    let word = p::req_str(v, "word")?;
+    if word.len() > 256 || !synonyms(&word.to_lowercase()).iter().any(|word| word == replacement) {
+        return Err(CmdError::Params("`text` must be a synonym returned for this word".into()));
+    }
+    Ok(replacement)
+}
+
+fn apply_synonym(s: &mut Session, target: ThesaurusTarget, replacement: &str) -> CmdResult {
+    s.sel = Selection { anchor: target.start, focus: target.end };
+    crate::cmd::type_text(s, replacement)?;
+    crate::cmd::sel_result(s)
 }

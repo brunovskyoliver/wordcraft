@@ -94,10 +94,10 @@ fn native_print_uses_selected_settings_and_reports_spool_errors() {
     assert!(app.status_msg.as_ref().unwrap().0.contains("printer is offline"));
 }
 
-/// At 800 by 700 the print page keeps Refresh printers and Grayscale enabled; toggling Grayscale
-/// updates the settings and readiness.
+/// At 800 by 700 the stacked print page keeps printer settings enabled and reachable through
+/// the settings scroll area. Toggling the visible Grayscale control updates settings/readiness.
 #[test]
-fn print_settings_are_visible_in_a_narrow_window() {
+fn print_settings_remain_reachable_in_a_narrow_window() {
     use egui_kittest::kittest::{NodeT, Queryable};
     let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default());
     // The labels below are English; an integration test otherwise follows the machine's language.
@@ -125,8 +125,25 @@ fn print_settings_are_visible_in_a_narrow_window() {
     harness.run_steps(5);
     assert!(!harness.get_by_label("Refresh printers").accesskit_node().is_disabled());
     assert!(!harness.get_by_label("Grayscale").accesskit_node().is_disabled());
+    let before_scroll = harness.get_by_label("Grayscale").rect();
+    // Compact Print now stacks settings above the preview. An AccessKit node can exist below
+    // the clipped settings region; reaching it must scroll that region before pointer input.
+    harness.get_by_label("Grayscale").scroll_to_me();
+    harness.run_steps(8);
+    let control = harness.get_by_label("Grayscale").rect();
+    let clip = harness
+        .output()
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(text) if text.galley.text() == "Grayscale" => Some(shape.clip_rect),
+            _ => None,
+        })
+        .expect("the grayscale label is painted");
+    eprintln!("grayscale geometry: before {before_scroll:?}, after {control:?}, clip {clip:?}");
+    assert!(clip.contains_rect(control), "grayscale must be visible before clicking: before {before_scroll:?}, after {control:?}, clip {clip:?}");
     harness.get_by_label("Grayscale").click();
-    harness.run_steps(2);
+    harness.run_steps(4);
     assert!(harness.state().printing.settings.grayscale);
     assert!(harness.state().printing.ready());
 }

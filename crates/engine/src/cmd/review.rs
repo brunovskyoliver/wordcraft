@@ -21,7 +21,10 @@ use comments::{
     comment_at_caret, comments_change, delete_comment, edit_comment, list_comments, nav_comment, new_comment, reply, validate_comment_id,
 };
 pub use comments::{comment_list, comment_range_at_caret};
-use proofing::{all_issues, issue_at, next_issue, suggestions, thesaurus, word_count};
+pub use proofing::{ThesaurusLookup, ThesaurusTarget, thesaurus_lookup};
+use proofing::{
+    all_issues, issue_at, next_issue, replace_synonym, replace_synonym_at_selection, suggestions, synonym_replacement_enabled, thesaurus, word_count,
+};
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
@@ -136,7 +139,15 @@ pub fn specs() -> Vec<CommandSpec> {
             Ok(json!({"value": s.view.proofing}))
         })
         .pure(),
-        CommandSpec::new("review.thesaurus", "Thesaurus", "Review › Proofing", thesaurus).key("Shift+F7").pure(),
+        CommandSpec::new("review.thesaurus", "Thesaurus", "Review › Proofing", thesaurus)
+            .params(r#"{"word"?: string (at most 256 bytes)} → {word, synonyms, target?}; read-only lookup"#)
+            .key("Shift+F7").pure(),
+        CommandSpec::new("review.replaceSynonym", "Replace with Synonym", "Review › Proofing", replace_synonym)
+            .params(r#"{"target": receipt from review.thesaurus, "word": lookup word, "text": returned synonym}; refuses changed documents or selections"#)
+            .when(synonym_replacement_enabled).automation_only(),
+        CommandSpec::new("review.replaceSynonymAtSelection", "Repeat Synonym Replacement", "Review › Proofing", replace_synonym_at_selection)
+            .params(r#"{"word": lookup word, "text": returned synonym}; replace the current word/selection, for Repeat and macros; explicit targets are rejected"#)
+            .when(synonym_replacement_enabled).automation_only(),
     ]
 }
 

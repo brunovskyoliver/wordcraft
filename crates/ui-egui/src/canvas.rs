@@ -517,7 +517,7 @@ fn prepare_view(app: &mut WordApp, ui: &Ui, full: Rect, layout: &DocLayout) -> C
     app.canvas.canvas_rect = Some(area);
     let animate = app.animations_on();
     let opts = ui.ctx().options(|o| o.input_options);
-    let zoom_delta = ui.input(|i| app.canvas.wheel.zoom(i, &opts, animate));
+    let zoom_delta = if crate::modal_input::background_blocked(app) { 1.0 } else { ui.input(|i| app.canvas.wheel.zoom(i, &opts, animate)) };
     let mut zoom_anchor = None;
     if (zoom_delta - 1.0).abs() > 1e-3 && ui.rect_contains_pointer(area) {
         if !read_mode && let Some(p) = ui.input(|i| i.pointer.latest_pos()) {
@@ -611,6 +611,13 @@ struct ScrollMotion {
 }
 
 fn scroll_motion(app: &mut WordApp, ui: &Ui, full: Rect, view: &CanvasView) -> ScrollMotion {
+    if crate::modal_input::background_blocked(app) {
+        app.canvas.wheel = Default::default();
+        app.canvas.auto_scroll.cancel();
+        app.canvas.read_wheel_accum = 0.0;
+        app.canvas.read_target_page = None;
+        return ScrollMotion { wheel: egui::Vec2::ZERO, auto: egui::Vec2::ZERO, middle: egui::Vec2::ZERO };
+    }
     // Read Mode's centred columns leave margins at the sides; the wheel turns pages over them too.
     let wheel_area = if app.session.view.read_mode { full } else { view.area };
     let hovered = wheel_hovered(ui.rect_contains_pointer(wheel_area), ui.ctx().dragged_id().is_some(), app.canvas.drag_selecting());
@@ -1161,6 +1168,12 @@ fn finish_canvas_frame(finish: CanvasFinish<'_>, out: egui::scroll_area::ScrollA
     update_canvas_focus(app, ui, &resp, ime_geometry, ime_interrupt);
     // Screen readers: the document under the canvas, with the caret (#488).
     crate::a11y::expose(app, ui.ctx(), resp.id, layout, &rects, area);
+    if crate::modal_input::background_blocked(app) {
+        if let (Some(h), Some(v)) = (hruler, vruler) {
+            rulers(app, ui, h, v, &rects, layout, geo.scale);
+        }
+        return;
+    }
     // The buttons that start or stop middle-click scrolling don't also click the page.
     let middle_gesture = app.canvas.auto_scroll.blocks_input();
     handle_primary_pointer(app, ui, &resp, &rects, layout, geo, middle_gesture);
@@ -1310,6 +1323,21 @@ fn finish_canvas_frame(finish: CanvasFinish<'_>, out: egui::scroll_area::ScrollA
 /// rulers and overlays, anchors zoom and scrolling, and routes pointer, selection, IME and caret
 /// input.
 pub fn show(app: &mut WordApp, ui: &mut Ui) {
+    if crate::modal_input::background_blocked(app) {
+        app.canvas.cancel_text_drag();
+        app.canvas.obj_drag = None;
+        app.canvas.crop_drag = None;
+        app.canvas.ink = None;
+        app.canvas.erasing = None;
+        app.canvas.ink_ui.lasso = None;
+        app.canvas.table_stroke = None;
+        app.canvas.table_resize = None;
+        app.canvas.table_drag = None;
+        app.canvas.tab_drag = None;
+        app.canvas.context_menu_open = false;
+        app.canvas.context_menu_from_keys = false;
+        app.canvas.mini_anchor = None;
+    }
     let t = Tokens::get(ui.ctx());
     let full = ui.available_rect_before_wrap();
     let layout = prepare_layout(app, ui, full);
@@ -1372,6 +1400,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             egui::Area::new(egui::Id::unique("floating_comment")).order(egui::Order::Foreground).fixed_pos(Pos2::ZERO).sense(Sense::hover()).show(
                 &ctx,
                 |aui| {
+                    if crate::modal_input::background_blocked(app) {
+                        aui.disable();
+                    }
                     aui.set_clip_rect(view_rect);
                     let ap = aui.painter().clone();
                     balloons(app, aui, &ap, &rects, &layout, geo.scale, view_rect);

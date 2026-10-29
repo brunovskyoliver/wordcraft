@@ -1,0 +1,38 @@
+{"empty": true, "width": 800, "height": 600, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "First sentence. Second sentence. Third sentence."}}}
+{"method": "engine.execute", "params": {"command": "review.readAloud", "params": {}}}
+{"method": "engine.execute", "params": {"command": "readAloud.status", "params": {}}, "expect": {"result": {"state": "playing"}}}
+{"steps": 8}
+{"method": "ui.inspect"}
+{"shot": "read-aloud-interaction-compact-light--01-open.png"}
+{"method": "ui.click", "params": {"x": 619, "y": 290}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Tab", "shift": true}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Tab", "shift": true}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Tab", "shift": true}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Tab", "shift": true}}
+{"steps": 8}
+{"shot": "read-aloud-interaction-compact-light--02-keyboard-focus.png"}
+{"method": "ui.key", "params": {"key": "Space"}}
+{"steps": 8}
+{"method": "engine.execute", "params": {"command": "readAloud.status", "params": {}}, "expect": {"result": {"state": "paused", "index": 0}}}
+{"shot": "read-aloud-interaction-compact-light--03-keyboard-paused.png"}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 8}
+{"method": "engine.execute", "params": {"command": "readAloud.status", "params": {}}, "expect": {"result": {"state": "paused", "index": 1}}}
+{"shot": "read-aloud-interaction-compact-light--04-keyboard-next.png"}
+{"method": "ui.key", "params": {"key": "Tab"}}
+{"steps": 8}
+{"method": "ui.key", "params": {"key": "Space"}}
+{"steps": 8}
+{"method": "engine.execute", "params": {"command": "readAloud.status", "params": {}}, "expect": {"result": {"state": "stopped", "open": false}}}
+{"method": "engine.execute", "params": {"command": "document.text", "params": {}}, "expect": {"result": {"text": "First sentence. Second sentence. Third sentence."}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"result": {"depth": 1}}}
+{"shot": "read-aloud-interaction-compact-light--05-stopped.png"}

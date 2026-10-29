@@ -9,8 +9,8 @@ pub(super) struct Content<'a> {
 /// each pane sits is the app's.
 const HOST: &str = "task_panes";
 
-/// Whether a dialog, file browser, colors dialog, content-control popup, Zotero alert, keytips
-/// or egui popup is open: the keyboard belongs to it, not to the panes or the document.
+/// Whether an overlay or a pending pane focus request owns the keyboard. The document and
+/// global shortcuts wait until the overlay closes or the pane field claims focus.
 pub(crate) fn overlay_open(app: &WordApp, ctx: &egui::Context) -> bool {
     app.dialog.is_some() || other_overlay_open(app, ctx)
 }
@@ -20,15 +20,21 @@ pub(crate) fn overlay_open(app: &WordApp, ctx: &egui::Context) -> bool {
 pub(crate) fn document_input_blocked(app: &WordApp, ctx: &egui::Context) -> bool {
     let modal = match &app.dialog {
         Some(crate::dialogs::Dialog::Find { focus, .. }) => *focus,
-        Some(crate::dialogs::Dialog::Refs(dialog)) if matches!(dialog.as_ref(), crate::dialogs_refs::RefsDialog::MarkEntry(_)) => false,
+        Some(dialog) => !dialog.is_modeless(),
         None => false,
-        Some(_) => true,
     };
     modal || other_overlay_open(app, ctx)
 }
 
 fn other_overlay_open(app: &WordApp, ctx: &egui::Context) -> bool {
-    app.file_dialog_open()
+    // A newly opened text pane owns the rest of the opening input batch, before its field
+    // can claim egui focus on the next draw.
+    (app.session.view.thesaurus_pane
+        && app.thesaurus.focus_requested()
+        && app.has_document()
+        && !app.ui.backstage
+        && crate::chrome::Screen::of(&app.session.view) == crate::chrome::Screen::Normal)
+        || app.file_dialog_open()
         || app.colors.is_some()
         || app.controls.popup_open()
         || app.zotero.alert_open()
@@ -76,6 +82,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         .frame(egui::Frame::NONE.fill(t.panel).stroke(Stroke::new(1.0, t.border)))
         .body_margin(egui::Margin::same(10))
         .show(ui, &open, |pane| states.iter().find(|(p, _)| p == pane).map(|(_, state)| *state), &mut Content { app });
+    if crate::modal_input::background_blocked(app) {
+        return;
+    }
     for request in out.requests {
         apply(app, request);
     }

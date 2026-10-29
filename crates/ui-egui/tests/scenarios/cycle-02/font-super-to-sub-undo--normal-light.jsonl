@@ -1,0 +1,25 @@
+{"empty": true, "width": 1024, "height": 768, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.language", "params": {"value": "en"}}}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "Alpha Beta"}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "Alpha"}}}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"size": 12.0, "italic": false}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 1}}}
+{"method": "engine.execute", "params": {"command": "format.superscript", "params": {}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
+{"method": "engine.execute", "params": {"command": "ui.dialog", "params": {"name": "font"}}}
+{"steps": 6}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "sup": true, "sub": false}}}}
+{"method": "ui.click", "params": {"x": 435, "y": 405}}
+{"steps": 8}
+{"method": "ui.inspect", "expect": {"ok": true, "result": {"dialog": {"dialog": "font", "sup": false, "sub": true}}}}
+{"shot": "font-super-to-sub-undo--normal-light--01-mutually-exclusive.png"}
+{"method": "ui.key", "params": {"key": "Enter"}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"superscript": false, "subscript": true}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 3}}}
+{"shot": "font-super-to-sub-undo--normal-light--02-applied.png"}
+{"method": "ui.key", "params": {"key": "Z", "cmd": true}}
+{"steps": 6}
+{"method": "engine.execute", "params": {"command": "document.selection", "params": {}}, "expect": {"ok": true, "result": {"text": "Alpha", "anchor": {"path": [0], "story": "body", "off": 0}, "focus": {"path": [0], "story": "body", "off": 5}, "format": {"superscript": true, "subscript": false}}}}
+{"method": "engine.execute", "params": {"command": "edit.undoHistory", "params": {}}, "expect": {"ok": true, "result": {"depth": 2}}}
