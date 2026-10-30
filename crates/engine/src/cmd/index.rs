@@ -29,7 +29,8 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("references.updateIndex", "Update Index", "References › Index", |s, _| {
             super::citations::update_generated(s)?;
             sel_result(s)
-        }),
+        })
+        .when(super::citations::nothing_generated),
     ]
 }
 

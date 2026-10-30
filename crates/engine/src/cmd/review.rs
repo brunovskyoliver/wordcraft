@@ -44,8 +44,8 @@ pub fn specs() -> Vec<CommandSpec> {
             sel_result(s)
         })
         .params(r#"{"id"?: non-negative JSON integer (omit to use the caret), "value"?: bool (omit to toggle)}"#),
-        CommandSpec::new("review.nextComment", "Next", "Review › Comments", |s, _| nav_comment(s, 1)).pure(),
-        CommandSpec::new("review.previousComment", "Previous", "Review › Comments", |s, _| nav_comment(s, -1)).pure(),
+        CommandSpec::new("review.nextComment", "Next", "Review › Comments", |s, _| nav_comment(s, 1)).when(no_comments).pure(),
+        CommandSpec::new("review.previousComment", "Previous", "Review › Comments", |s, _| nav_comment(s, -1)).when(no_comments).pure(),
         CommandSpec::new("review.comments", "Show Comments", "Review › Comments", list_comments).pure(),
         CommandSpec::new("review.trackChanges", "Track Changes", "Review › Tracking", |s, v| {
             s.doc.settings.track_changes = p::bool(v, "value").unwrap_or(!s.doc.settings.track_changes);
@@ -61,8 +61,8 @@ pub fn specs() -> Vec<CommandSpec> {
             .params(r#"{"next"?: bool (then select the next change)}"#),
         CommandSpec::new("review.reject", "Reject", "Review › Changes", |s, v| resolve_sel_then(s, v, false))
             .params(r#"{"next"?: bool (then select the next change)}"#),
-        CommandSpec::new("review.nextChange", "Next Change", "Review › Changes", |s, _| nav_change(s, 1)).pure(),
-        CommandSpec::new("review.previousChange", "Previous Change", "Review › Changes", |s, _| nav_change(s, -1)).pure(),
+        CommandSpec::new("review.nextChange", "Next Change", "Review › Changes", |s, _| nav_change(s, 1)).when(no_changes).pure(),
+        CommandSpec::new("review.previousChange", "Previous Change", "Review › Changes", |s, _| nav_change(s, -1)).when(no_changes).pure(),
         CommandSpec::new("review.markup", "Display for Review", "Review › Tracking", |s, v| {
             s.view.show_markup = p::str(v, "value").map(|m| m != "noMarkup" && m != "original").unwrap_or(!s.view.show_markup);
             // Without markup, deletions leave the layout.
@@ -153,3 +153,11 @@ pub fn specs() -> Vec<CommandSpec> {
 
 #[cfg(test)]
 mod tests;
+
+fn no_comments(s: &Session) -> Option<&'static str> {
+    s.doc.comments.is_empty().then_some("the document has no comments")
+}
+
+fn no_changes(s: &Session) -> Option<&'static str> {
+    changes::has_no_changes(s).then_some("the document has no tracked changes")
+}

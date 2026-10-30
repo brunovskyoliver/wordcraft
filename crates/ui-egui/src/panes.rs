@@ -21,6 +21,7 @@ mod comments;
 mod host;
 mod inspector;
 mod nav;
+mod reviewing;
 mod selection;
 mod thesaurus;
 pub(crate) use thesaurus::ThesaurusState;
@@ -62,6 +63,7 @@ pub enum Pane {
     Comments,
     Selection,
     Thesaurus,
+    Reviewing,
 }
 
 impl Pane {
@@ -79,6 +81,7 @@ impl Pane {
             Self::Comments => "Comments",
             Self::Selection => "Selection Pane",
             Self::Thesaurus => "Thesaurus",
+            Self::Reviewing => "Reviewing Pane",
         }
     }
 
@@ -96,6 +99,7 @@ impl Pane {
             Self::Comments => (Edge::End, 290.0),
             Self::Selection => (Edge::End, 260.0),
             Self::Thesaurus => (Edge::End, 280.0),
+            Self::Reviewing => (Edge::End, 300.0),
         };
         PaneState::docked(edge, width)
     }
@@ -115,10 +119,11 @@ impl Pane {
             Self::Comments => "comments",
             Self::Selection => "selection",
             Self::Thesaurus => "thesaurus",
+            Self::Reviewing => "reviewing",
         }
     }
 
-    const ALL: [Self; 12] = [
+    const ALL: [Self; 13] = [
         Self::SmartArtText,
         Self::Navigation,
         Self::Clipboard,
@@ -131,6 +136,7 @@ impl Pane {
         Self::Comments,
         Self::Selection,
         Self::Thesaurus,
+        Self::Reviewing,
     ];
 
     fn from_key(key: &str) -> Option<Self> {
@@ -151,6 +157,7 @@ impl Pane {
             Self::Comments => Some("view.commentsPane"),
             Self::Selection => Some("view.selectionPane"),
             Self::Thesaurus => Some("view.thesaurusPane"),
+            Self::Reviewing => Some("view.reviewingPane"),
             Self::RestrictEditing => None,
         }
     }
@@ -182,6 +189,7 @@ impl PaneContent<Pane> for Content<'_> {
             Pane::Comments => comments(app, ui),
             Pane::Selection => selection::show(app, ui),
             Pane::Thesaurus => thesaurus::show(app, ui),
+            Pane::Reviewing => reviewing::show(app, ui),
         }
     }
 

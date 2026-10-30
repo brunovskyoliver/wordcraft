@@ -214,10 +214,10 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
     r
 }
 
-/// A dialog's single Close button (Escape too).
+/// A dialog's single Close button (Enter and Escape too).
 pub(super) fn close_button(ui: &mut Ui) -> bool {
     ui.add_space(8.0);
-    let mut close = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape));
+    let mut close = crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Enter));
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             close |= ui.add(crate::widgets::primary_button(ui, tl!("Close"))).clicked();

@@ -102,6 +102,26 @@ impl WordApp {
         }
         // The user-facing Selection Pane command presents the object list. Agent queries
         // through execute() keep returning data without opening or closing a pane.
+        if id == "review.changes" && r.is_ok() {
+            let _ = self.execute("view.reviewingPane", json!({}));
+        }
+        // Show Notes takes the caret to the notes, or says there are none.
+        if id == "references.notes"
+            && let Ok(Value::Array(notes)) = &r
+        {
+            match notes.first().and_then(|note| note.get("id")).and_then(Value::as_u64).and_then(|id| u32::try_from(id).ok()) {
+                Some(part) => {
+                    self.session.sel = wordcraft_engine::Selection::caret(wordcraft_doc::Pos {
+                        story: wordcraft_doc::StoryRef::Part(part),
+                        path: wordcraft_doc::Path::top(0),
+                        off: 0,
+                    });
+                    self.session.push_ui_request(json!({"scrollTo": "caret"}));
+                    self.canvas.want_focus = true;
+                }
+                None => self.status(tl!("This document has no footnotes or endnotes.")),
+            }
+        }
         if id == "arrange.selectionPane" && r.is_ok() {
             let _ = self.execute("view.selectionPane", json!({}));
         }
@@ -202,7 +222,7 @@ impl WordApp {
                 return Err(msg);
             }
             if marked_saved {
-                self.session.dirty = false;
+                self.session.mark_saved();
                 // The host page keeps the file under this name now, as a desktop save would.
                 if self.services.host_save.is_some() {
                     self.session.path = Some(std::path::PathBuf::from(&name));
@@ -930,6 +950,7 @@ fn input_dialog_mailings(id: &str, params: &Value) -> Option<&'static str> {
 
 fn input_dialog_insert(id: &str, params: &Value) -> Option<&'static str> {
     match id {
+        "insert.link" if !["url", "bookmark", "heading", "top"].into_iter().any(|key| params.get(key).is_some()) => Some("link"),
         "insert.symbol" if !has_value(params, "char") => Some("symbol"),
         "insert.field" if !has_value(params, "instr") => Some("field"),
         "insert.smartArt" if !has_value(params, "layout") && !has_value(params, "items") => Some("insertSmartArt"),

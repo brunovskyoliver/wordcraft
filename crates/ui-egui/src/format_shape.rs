@@ -142,7 +142,7 @@ fn solid(app: &mut WordApp, ui: &mut Ui, theme: &[Rgb], color: Rgb, transparency
 fn percent(ui: &mut Ui, label: &str, v: &mut f32) -> Option<Response> {
     ui.horizontal(|ui| {
         let label = ui.label(label);
-        let s = ui.add(egui::Slider::new(v, 0.0..=100.0).suffix("%").fixed_decimals(0)).labelled_by(label.id);
+        let s = crate::widgets::slider(ui, egui::Slider::new(v, 0.0..=100.0).suffix("%").fixed_decimals(0)).labelled_by(label.id);
         (s.changed()).then_some(s)
     })
     .inner

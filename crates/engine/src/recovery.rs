@@ -116,7 +116,7 @@ impl Session {
             r.error = Some("Recovery cancelled: the document changed while the copy was loading.".into());
             return;
         }
-        self.dirty = true;
+        self.mark_unsaved();
         self.recovery_slot.adopt(id, self.rev());
     }
     pub fn recovery_wait(&self) -> Option<std::time::Duration> {

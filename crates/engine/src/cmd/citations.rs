@@ -24,7 +24,7 @@ pub use cross_refs::{caption_labels, ref_targets};
 use generated::ENTRY_STYLE;
 pub(crate) use generated::generated_list;
 use generated::table_of_figures;
-pub use generated::{figures_instr, update_generated};
+pub use generated::{figures_instr, nothing_generated, update_generated};
 pub use render::{cite, entry};
 pub use sources::update_citations;
 use sources::{citation, sources};
@@ -61,7 +61,8 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("references.updateFigures", "Update Table", "References › Captions", |s, _| {
             update_generated(s)?;
             sel_result(s)
-        }),
+        })
+        .when(nothing_generated),
         CommandSpec::new("references.markCitation", "Mark Citation", "References › Table of Authorities", |s, v| {
             let entry = p::str(v, "entry").map(str::to_string).unwrap_or_else(|| s.selected_text().trim().to_string());
             if entry.is_empty() {
@@ -80,7 +81,8 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("references.updateAuthorities", "Update Table", "References › Table of Authorities", |s, _| {
             update_generated(s)?;
             sel_result(s)
-        }),
+        })
+        .when(nothing_generated),
         CommandSpec::new("insert.crossReference", "Cross-reference", "Insert › Links", cross_ref)
             .params(r#"{"to": "heading|bookmark|figure|table|equation|label:<Name> (a caption label of your own)", "target": string (text / name / number), "show"?: "text|page|number|aboveBelow"} or {} to list targets"#),
         CommandSpec::new("references.noteOptions", "Footnote and Endnote", "References › Footnotes", super::references::note_options).params(

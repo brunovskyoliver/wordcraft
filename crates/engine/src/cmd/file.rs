@@ -327,7 +327,7 @@ fn encrypt(s: &mut Session, v: &Value) -> CmdResult {
             s.clear_recovery_before_password()?;
         }
         s.password = password;
-        s.dirty = true;
+        s.mark_unsaved();
     }
     Ok(json!({"encrypted": s.password.is_some()}))
 }
@@ -382,7 +382,7 @@ fn save(s: &mut Session, v: &Value) -> CmdResult {
     let own_file = s.path.as_deref() == Some(path.as_path());
     if own_file || ["docx", "docm", "dotx", "dotm", "odt", "rtf", "json", "xml"].contains(&ext.as_str()) {
         s.path = Some(path.clone());
-        s.dirty = false;
+        s.mark_saved();
         s.relayout();
     }
     Ok(json!({"saved": true, "path": path.to_string_lossy(), "encrypted": encrypted}))

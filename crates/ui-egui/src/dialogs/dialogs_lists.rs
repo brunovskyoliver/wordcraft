@@ -441,13 +441,15 @@ impl TrackForm {
 }
 
 /// A choice from `options` ((value, label)) in a drop-down.
-fn choice(ui: &mut Ui, id: &str, value: &mut String, options: &[(&str, &str)]) {
+fn choice(ui: &mut Ui, name: &str, id: &str, value: &mut String, options: &[(&str, &str)]) {
     let label = |k: &str| options.iter().find(|(v, _)| *v == k).map(|(_, l)| tl!(l).to_string()).unwrap_or_default();
-    craft_ui::ComboBox::from_id_salt(id).selected_text(label(value)).width(150.0).show_ui(ui, |ui| {
+    let shown = label(value);
+    let combo = craft_ui::ComboBox::from_id_salt(id).selected_text(shown.clone()).width(150.0).show_ui(ui, |ui| {
         for (v, l) in options {
             ui.selectable_value(value, v.to_string(), tl!(l));
         }
     });
+    crate::widgets::named_combo(&combo.response, tl!(name), &shown);
 }
 
 /// A colour: `none_label` (by author, or `auto` when given) or a colour from the grid. `value` is
@@ -553,16 +555,17 @@ pub fn track_options(app: &mut WordApp, ui: &mut Ui, f: &mut TrackForm) -> bool 
     heading(ui, "Advanced");
     egui::Grid::new("tco_advanced").num_columns(3).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Insertions:"));
-        choice(ui, "tco_ins", &mut f.insert_mark, INSERT_MARKS);
+        choice(ui, "Insertions:", "tco_ins", &mut f.insert_mark, INSERT_MARKS);
         color(ui, &theme, &mut f.insert_color, "By author", None);
         ui.end_row();
         ui.label(tl!("Deletions:"));
-        choice(ui, "tco_del", &mut f.delete_mark, DELETE_MARKS);
+        choice(ui, "Deletions:", "tco_del", &mut f.delete_mark, DELETE_MARKS);
         color(ui, &theme, &mut f.delete_color, "By author", None);
         ui.end_row();
         ui.label(tl!("Changed lines:"));
         choice(
             ui,
+            "Changed lines:",
             "tco_bar",
             &mut f.changed_lines,
             &[("outside", "Outside border"), ("left", "Left border"), ("right", "Right border"), ("none", "None")],
@@ -573,11 +576,11 @@ pub fn track_options(app: &mut WordApp, ui: &mut Ui, f: &mut TrackForm) -> bool 
     heading(ui, "Moves");
     egui::Grid::new("tco_moves").num_columns(3).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Moved from:"));
-        choice(ui, "tco_move_from", &mut f.move_from_mark, DELETE_MARKS);
+        choice(ui, "Moved from:", "tco_move_from", &mut f.move_from_mark, DELETE_MARKS);
         ui.push_id("tco_move_from_color", |ui| color(ui, &theme, &mut f.move_from_color, "By author", None));
         ui.end_row();
         ui.label(tl!("Moved to:"));
-        choice(ui, "tco_move_to", &mut f.move_to_mark, MOVE_TO_MARKS);
+        choice(ui, "Moved to:", "tco_move_to", &mut f.move_to_mark, MOVE_TO_MARKS);
         ui.push_id("tco_move_to_color", |ui| color(ui, &theme, &mut f.move_to_color, "By author", None));
         ui.end_row();
     });

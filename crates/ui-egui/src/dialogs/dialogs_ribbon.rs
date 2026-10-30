@@ -186,11 +186,12 @@ pub fn customize_ribbon(app: &mut WordApp, ui: &mut Ui, f: &mut RibbonForm) -> b
     });
     ui.separator();
     let h = 300.0;
-    ui.add(
+    let search = ui.add(
         egui::TextEdit::singleline(&mut f.filter)
             .hint_text(tl!("Search"))
             .desired_width(layout.category + layout.commands + ui.spacing().item_spacing.x),
     );
+    crate::widgets::named_input(search, tl!("Search"));
     if layout.stacked {
         command_picker(app, ui, f, &layout, h);
         ui.separator();

@@ -39,7 +39,7 @@ impl Session {
         self.reset_history();
         self.clear_versions();
         self.touch();
-        self.dirty = false;
+        self.mark_saved();
         self.made_rev = self.rev;
         self.relayout();
     }
@@ -74,6 +74,8 @@ impl Session {
             // The custom dictionary file, like the file path: host wiring, not an edit.
             user_dict_path: _,
             dirty,
+            // What is stored, not an edit: a preview taken back leaves it.
+            saved_doc: _,
             clipboard: _,
             // Like the clipboard: what the next paste can make a move of.
             pending_move: _,

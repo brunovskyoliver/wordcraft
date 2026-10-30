@@ -559,9 +559,11 @@ fn accessibility(app: &mut WordApp, ui: &mut Ui) {
             let value_width = (value_width + 2.0 * ui.spacing().button_padding.x).max(ui.spacing().interact_size.x);
             ui.spacing_mut().slider_width =
                 ui.spacing().slider_width.min((width - value_width - ui.spacing().item_spacing.x).max(ui.spacing().interact_size.y));
-            let r = ui
-                .add(egui::Slider::new(&mut rate, MIN_RATE..=MAX_RATE).step_by(0.05).custom_formatter(|v, _| format!("{v:.2}×")))
-                .labelled_by(label);
+            let r = crate::widgets::slider(
+                ui,
+                egui::Slider::new(&mut rate, MIN_RATE..=MAX_RATE).step_by(0.05).custom_formatter(|v, _| format!("{v:.2}×")),
+            )
+            .labelled_by(label);
             if r.changed() {
                 let _ = app.run("readAloud.speed", json!({"value": rate}));
             }

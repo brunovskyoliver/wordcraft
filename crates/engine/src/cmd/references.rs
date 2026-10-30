@@ -33,6 +33,10 @@ pub fn specs() -> Vec<CommandSpec> {
         ),
         CommandSpec::new("references.updateToc", "Update Table", "References › Table of Contents", |s, _| {
             update_toc(s)?;
+            // Imported tables only become fields during the update, so this can't be known before.
+            if toc_range(s).is_none() {
+                s.status = "The document has no table of contents.".into();
+            }
             sel_result(s)
         }),
         CommandSpec::new("references.removeToc", "Remove Table of Contents", "References › Table of Contents", |s, _| {
@@ -73,6 +77,7 @@ pub fn specs() -> Vec<CommandSpec> {
             }
             sel_result(s)
         })
+        .when(|s| note_refs(s, Some(NoteKind::Footnote)).is_empty().then_some("the document has no footnotes"))
         .key(super::non_mac("Alt+Shift+> / Alt+Shift+."))
         .pure(),
         CommandSpec::new("references.notes", "Show Notes", "References › Footnotes", |s, _| {

@@ -58,6 +58,9 @@ pub struct Session {
     /// name, not document metadata, so it is not part of the document or its undo history.
     pub file_name: Option<String>,
     pub dirty: bool,
+    /// The document as last saved or opened, which Undo and Redo compare with so that stepping
+    /// back to it clears `dirty`. `None` when no in-memory state matches what is stored.
+    pub(crate) saved_doc: Option<Document>,
     /// Where the custom dictionary is kept on disk, if the host wired one up. Only the desktop
     /// app does: headless sessions (MCP, `wordcraft-cli run`), tests and the web build leave
     /// `None`, so an agent's words stay in memory and never change the person's dictionary.

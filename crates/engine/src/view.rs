@@ -52,6 +52,9 @@ pub struct ViewState {
     /// Review > Thesaurus: results from the limited built-in dictionary.
     #[serde(default)]
     pub thesaurus_pane: bool,
+    /// Reviewing Pane: the tracked changes as a list.
+    #[serde(default)]
+    pub reviewing_pane: bool,
     pub multi_page: bool,
     /// One Page or Page Width was chosen last: keep one page per row when a typed or wheel zoom replaces the fit mode.
     #[serde(default)]
@@ -191,6 +194,7 @@ impl Default for ViewState {
             format_shape_pane: false,
             selection_pane: false,
             thesaurus_pane: false,
+            reviewing_pane: false,
             multi_page: false,
             single_column: false,
             fit: String::new(),

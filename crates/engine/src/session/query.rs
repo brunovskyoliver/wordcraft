@@ -103,6 +103,18 @@ impl Session {
         self.dirty = true;
     }
 
+    /// Note that the current document is what storage now holds.
+    pub fn mark_saved(&mut self) {
+        self.dirty = false;
+        self.saved_doc = Some(self.doc.clone());
+    }
+
+    /// Note that storage no longer matches, even if the document returns to its earlier content.
+    pub fn mark_unsaved(&mut self) {
+        self.dirty = true;
+        self.saved_doc = None;
+    }
+
     /// Reading Highlight ranges for the current document (searched again after edits); empty when it's off.
     pub fn find_highlights(&mut self) -> &[(Pos, Pos)] {
         if !self.find.highlight {

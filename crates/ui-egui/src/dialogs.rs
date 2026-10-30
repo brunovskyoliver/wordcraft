@@ -191,6 +191,7 @@ pub enum Dialog {
         first_page: bool,
     },
     Link {
+        context: Option<wordcraft_engine::cmd::insert::LinkContext>,
         url: String,
         text: String,
         /// Why the last submission was refused; never discard the draft on failure.
@@ -717,15 +718,19 @@ impl Dialog {
                     first_page: sp.title_page,
                 }
             }
-            "link" => Dialog::Link {
-                url: "https://".into(),
-                text: app.session.selected_text(),
-                message: String::new(),
-                place: false,
-                targets: None,
-                pick: None,
-                focus: true,
-            },
+            "link" => {
+                let context = wordcraft_engine::cmd::insert::link_context(&app.session);
+                Dialog::Link {
+                    url: context.as_ref().and_then(|c| c.url.clone()).unwrap_or_else(|| "https://".into()),
+                    text: context.as_ref().map(|c| c.text.clone()).unwrap_or_else(|| app.session.selected_text()),
+                    context,
+                    message: String::new(),
+                    place: false,
+                    targets: None,
+                    pick: None,
+                    focus: true,
+                }
+            }
             "bookmark" => Dialog::Bookmark { name: bookmark_at_caret(&app.session), by_location: false, hidden: false, deleted: false },
             "wordCount" => Dialog::WordCount { stats: app.session.run("review.wordCount", &json!({})).unwrap_or_default() },
             "zoom" => Dialog::Zoom { percent: (app.session.view.zoom * 100.0).round() },

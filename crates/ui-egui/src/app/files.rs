@@ -123,10 +123,10 @@ impl WordApp {
                     async_saves::SaveOutcome::Saved => log::info!("saved {} through the save picker", save.name),
                     async_saves::SaveOutcome::Cancelled | async_saves::SaveOutcome::Failed(_) => {
                         if save.marked_saved && save.document == current {
-                            self.session.dirty = true;
+                            self.session.mark_unsaved();
                         } else if save.marked_saved {
                             // Another document is shown: the one saved is unsaved again where it waits.
-                            let _ = self.session.with_document(save.document, |s| s.dirty = true);
+                            let _ = self.session.with_document(save.document, |s| s.mark_unsaved());
                         }
                     }
                 }

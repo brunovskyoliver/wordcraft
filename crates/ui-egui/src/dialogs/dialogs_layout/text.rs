@@ -216,9 +216,7 @@ fn with_off(pos: &Value, off: u64) -> Value {
 pub(super) fn manual_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ManualForm) -> bool {
     if f.done {
         ui.label(tl!("Manual hyphenation is complete."));
-        ui.add_space(8.0);
-        return ui.button(tl!("Close")).clicked()
-            || crate::modal_input::key_input(ui, |i| i.key_pressed(egui::Key::Escape) || i.key_pressed(egui::Key::Enter));
+        return super::super::chrome::close_button(ui);
     }
     ui.label(tl!("Hyphenate at:"));
     // The word with every possible break; the chosen one is the hyphen that will be inserted.

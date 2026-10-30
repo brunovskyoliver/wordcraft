@@ -397,7 +397,8 @@ fn preview(app: &mut WordApp, ui: &mut Ui, lay: &DocLayout, total: usize) {
         if room >= 40.0 {
             let mut v = z;
             ui.spacing_mut().slider_width = room.min(110.0);
-            let response = ui.add(egui::Slider::new(&mut v, 0.1..=5.0).logarithmic(true).show_value(false)).on_hover_text(tl!("Zoom"));
+            let response =
+                crate::widgets::slider(ui, egui::Slider::new(&mut v, 0.1..=5.0).logarithmic(true).show_value(false)).on_hover_text(tl!("Zoom"));
             response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Slider, ui.is_enabled(), tl!("Zoom")));
             if response.changed() {
                 app.ui.print.zoom = Some(v.clamp(0.1, 5.0));

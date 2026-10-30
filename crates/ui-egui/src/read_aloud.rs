@@ -114,7 +114,8 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         ui.horizontal(|ui| {
             let label = ui.label(tl!("Speed"));
             ui.spacing_mut().slider_width = 110.0;
-            let r = ui.add(
+            let r = crate::widgets::slider(
+                ui,
                 egui::Slider::new(&mut rate, MIN_RATE..=MAX_RATE)
                     .step_by(0.05)
                     .trailing_fill(true)

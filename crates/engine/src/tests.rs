@@ -11086,3 +11086,71 @@ fn scale_font_sizes_reaches_char_table_and_cs_sizes_and_unset_default() {
     assert_eq!(grid.header_chr.size, Some(16.0));
     assert_eq!(grid.regions.get(&TablePart::Band2Horz).unwrap().chr.size, Some(10.0));
 }
+
+/// AUD-019: Undo back to the saved content leaves nothing to save; Redo, or another route away
+/// from it, does, and so does a later save moving the savepoint.
+#[test]
+fn undo_to_the_saved_state_clears_unsaved_changes() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Saved"));
+    assert!(!s.dirty);
+    s.run("text.insert", &json!({"text": "one "})).unwrap();
+    assert!(s.dirty);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert!(!s.dirty, "back at the content that was opened");
+    s.run("edit.redo", &json!({})).unwrap();
+    assert!(s.dirty, "redo leaves the saved content again");
+
+    // Saving moves the savepoint.
+    let path = std::env::temp_dir().join(format!("wordcraft-savepoint-{}.docx", std::process::id()));
+    s.run("file.save", &json!({"path": path.to_string_lossy()})).unwrap();
+    assert!(!s.dirty);
+    s.run("text.insert", &json!({"text": "two "})).unwrap();
+    assert!(s.dirty);
+    s.run("edit.undo", &json!({})).unwrap();
+    assert!(!s.dirty, "back at the content that was saved");
+    s.run("edit.undo", &json!({})).unwrap();
+    assert!(s.dirty, "older than the savepoint");
+    s.run("edit.redo", &json!({})).unwrap();
+    assert!(!s.dirty, "forward to the savepoint");
+    let _ = std::fs::remove_file(&path);
+}
+
+/// AUD-019: a change Undo can't see, such as a new password, stays unsaved through Undo.
+#[test]
+fn undo_keeps_changes_outside_the_document_unsaved() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Saved"));
+    s.run("text.insert", &json!({"text": "one "})).unwrap();
+    s.mark_unsaved();
+    s.run("edit.undo", &json!({})).unwrap();
+    assert!(s.dirty);
+}
+
+/// AUD-039: a command the front end can't carry out is disabled, not silently successful.
+#[test]
+fn split_is_refused_until_a_second_pane_exists() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Text"));
+    assert!(s.run("view.split", &json!({})).is_err());
+    assert!(s.ui_requests.is_empty());
+}
+
+/// AUD-038: navigation and Update commands with nothing to act on are disabled, not silent.
+#[test]
+fn commands_with_nothing_to_act_on_are_disabled() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Text"));
+    for id in [
+        "review.nextComment",
+        "review.previousComment",
+        "review.nextChange",
+        "review.previousChange",
+        "references.nextFootnote",
+        "references.updateIndex",
+        "references.updateFigures",
+        "references.updateAuthorities",
+    ] {
+        assert!(s.run(id, &json!({})).is_err(), "{id}");
+    }
+    s.run("review.newComment", &json!({"text": "Note"})).unwrap();
+    assert!(s.run("review.nextComment", &json!({})).is_ok());
+    s.run("references.updateToc", &json!({})).unwrap();
+    assert_eq!(s.status, "The document has no table of contents.");
+}

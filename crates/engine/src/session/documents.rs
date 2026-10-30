@@ -46,6 +46,7 @@ pub struct DocState {
     pub(super) path: Option<PathBuf>,
     pub(super) file_name: Option<String>,
     pub(super) dirty: bool,
+    pub(super) saved_doc: Option<Document>,
     pub(super) pending_move: Option<crate::cmd::moves::PendingMove>,
     pub(super) find: FindState,
     pub(super) goal_x: Option<f32>,
@@ -93,6 +94,7 @@ impl DocState {
         let start = doc.start_of(StoryRef::Body);
         let bib_style = doc_bib_style(&doc);
         DocState {
+            saved_doc: Some(doc.clone()),
             doc,
             sel: Selection::caret(start),
             view,
@@ -200,6 +202,7 @@ impl Session {
             path: _,
             file_name: _,
             dirty: _,
+            saved_doc: _,
             pending_move: _,
             find: _,
             goal_x: _,
@@ -289,6 +292,7 @@ impl Session {
             path,
             file_name,
             dirty,
+            saved_doc,
             pending_move,
             find,
             goal_x,
@@ -336,6 +340,7 @@ impl Session {
         swap(&mut self.path, path);
         swap(&mut self.file_name, file_name);
         swap(&mut self.dirty, dirty);
+        swap(&mut self.saved_doc, saved_doc);
         swap(&mut self.pending_move, pending_move);
         swap(&mut self.find, find);
         swap(&mut self.goal_x, goal_x);

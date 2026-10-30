@@ -159,6 +159,7 @@ pub(super) fn outlining(app: &mut WordApp, ui: &mut Ui) {
                 small(ui, app, "outlineCollapse", None, "Collapse", crate::widgets::ButtonAction::new("outline.collapse", json!({}), false));
                 ui.add_space(6.0);
                 ui.label(egui::RichText::new(tl!("Show Level")).size(11.5));
+                ui.add_space(4.0);
                 let mut shown: Vec<String> = vec![tl!("All Levels").to_string()];
                 shown.extend((1..BODY).map(name));
                 let current = shown.get(usize::from(o.show_level)).cloned().unwrap_or_default();
@@ -175,6 +176,7 @@ pub(super) fn outlining(app: &mut WordApp, ui: &mut Ui) {
                 if ui.checkbox(&mut f, tl!("Show Text Formatting")).changed() {
                     let _ = app.run("outline.showFormatting", json!({ "value": f }));
                 }
+                ui.add_space(8.0);
                 let mut first = o.first_line_only;
                 if ui.checkbox(&mut first, tl!("Show First Line Only")).changed() {
                     let _ = app.run("outline.firstLineOnly", json!({ "value": first }));

@@ -68,14 +68,15 @@ impl NoteForm {
 }
 
 /// A choice from `options` ((value, label)) in a drop-down; `tr` translates the labels.
-fn choice(ui: &mut Ui, id: &str, value: &mut String, options: &[(&str, &str)], tr: bool) {
+fn choice(ui: &mut Ui, name: &str, id: &str, value: &mut String, options: &[(&str, &str)], tr: bool) {
     let show = |l: &str| if tr { tl!(l).to_string() } else { l.to_string() };
     let label = options.iter().find(|(v, _)| *v == value.as_str()).map(|(_, l)| show(l)).unwrap_or_default();
-    craft_ui::ComboBox::from_id_salt(id).selected_text(label).width(170.0).show_ui(ui, |ui| {
+    let combo = craft_ui::ComboBox::from_id_salt(id).selected_text(label.clone()).width(170.0).show_ui(ui, |ui| {
         for (v, l) in options {
             ui.selectable_value(value, v.to_string(), show(l));
         }
     });
+    crate::widgets::named_combo(&combo.response, tl!(name), &label);
 }
 
 /// Footnote and Endnote. Returns true to close.
@@ -89,12 +90,12 @@ pub fn note_options(app: &mut WordApp, ui: &mut Ui, f: &mut NoteForm) -> bool {
     egui::Grid::new("notes_location").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.radio_value(&mut f.endnote, false, tl!("Footnotes"));
         ui.add_enabled_ui(!f.endnote, |ui| {
-            choice(ui, "notes_fpos", &mut f.pos[0], &[("pageBottom", "Bottom of Page"), ("beneathText", "Below text")], true);
+            choice(ui, "Footnotes", "notes_fpos", &mut f.pos[0], &[("pageBottom", "Bottom of Page"), ("beneathText", "Below text")], true);
         });
         ui.end_row();
         ui.radio_value(&mut f.endnote, true, tl!("Endnotes"));
         ui.add_enabled_ui(f.endnote, |ui| {
-            choice(ui, "notes_epos", &mut f.pos[1], &[("sectEnd", "End of section"), ("docEnd", "End of document")], true);
+            choice(ui, "Endnotes", "notes_epos", &mut f.pos[1], &[("sectEnd", "End of section"), ("docEnd", "End of document")], true);
         });
         ui.end_row();
         ui.label("");
@@ -118,15 +119,15 @@ pub fn note_options(app: &mut WordApp, ui: &mut Ui, f: &mut NoteForm) -> bool {
     egui::Grid::new("notes_format").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Number format"));
         if let Some(v) = f.fmt.get_mut(k) {
-            choice(ui, "notes_fmt", v, &FORMATS, false);
+            choice(ui, "Number format", "notes_fmt", v, &FORMATS, false);
         }
         ui.end_row();
-        ui.label(tl!("Custom mark:"));
-        ui.add(egui::TextEdit::singleline(&mut f.mark).desired_width(60.0).char_limit(10));
+        let label = ui.label(tl!("Custom mark:"));
+        ui.add(egui::TextEdit::singleline(&mut f.mark).desired_width(60.0).char_limit(10)).labelled_by(label.id);
         ui.end_row();
-        ui.label(tl!("Start at:"));
+        let label = ui.label(tl!("Start at:"));
         if let Some(v) = f.start.get_mut(k) {
-            ui.add(egui::DragValue::new(v).range(1..=32_767).speed(0.2));
+            ui.add(egui::DragValue::new(v).range(1..=32_767).speed(0.2)).labelled_by(label.id);
         }
         ui.end_row();
         ui.label(tl!("Numbering"));
@@ -134,12 +135,12 @@ pub fn note_options(app: &mut WordApp, ui: &mut Ui, f: &mut NoteForm) -> bool {
             let each_page: &[(&str, &str)] = if f.endnote { &[] } else { &[("eachPage", "Restart Each Page")] };
             let options: Vec<(&str, &str)> =
                 [("continuous", "Continuous numbering"), ("eachSect", "Restart Each Section")].into_iter().chain(each_page.iter().copied()).collect();
-            choice(ui, "notes_restart", v, &options, true);
+            choice(ui, "Numbering", "notes_restart", v, &options, true);
         }
         ui.end_row();
         ui.label(tl!("Apply to:"));
         let mut scope = if f.whole { "document" } else { "section" }.to_string();
-        choice(ui, "notes_scope", &mut scope, &[("document", "Whole document"), ("section", "This section")], true);
+        choice(ui, "Apply to:", "notes_scope", &mut scope, &[("document", "Whole document"), ("section", "This section")], true);
         f.whole = scope == "document";
         ui.end_row();
     });

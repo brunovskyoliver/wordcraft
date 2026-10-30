@@ -483,6 +483,10 @@ pub fn has_deletions(doc: &wordcraft_doc::Document) -> bool {
     })
 }
 
+pub(super) fn has_no_changes(s: &Session) -> bool {
+    changes(s).is_empty()
+}
+
 pub(super) fn nav_change(s: &mut Session, dir: i32) -> CmdResult {
     let list = changes(s);
     let caret = s.sel.ordered();

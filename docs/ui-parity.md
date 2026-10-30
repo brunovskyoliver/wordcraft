@@ -73,6 +73,7 @@ Footnote and endnote editing keeps body and note text at normal opacity, on ligh
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-31 | minor | UI-AUDIT-003: Reviewing Pane, Hyperlink editing, savepoint-aware unsaved state, no-op commands disabled or reported, View › Split disabled (open gap), accessible names; all eight CI gates pass; see `ui-audit.md` |
 | 2026-10-29 | minor | UI-AUDIT-002: scoped validation, panes, modal ownership, responsive layouts and accessibility verified; all eight CI gates pass; owner-requested stop after cycle 02; full parity remains open |
 | 2026-10-29 | minor | UI-AUDIT-001: first repair cycle verified; all eight CI gates pass; state inventory, source review, screenshots and remaining defects recorded; historical readiness estimate not re-assessed |
 | 2026-10-22 | trivial | View › Window › New Window opens another window on the document, focused and cascaded; two windows on one document are titled `Name:1` and `Name:2` (one window: the plain name). Each window keeps its own selection, scroll position, zoom, view mode, ruler and panes; the text, undo history, unsaved state and file are the document's, so an edit or Undo in either window shows in both, and a caret in text the other window deleted moves to the nearest place left. Closing one of a document's windows asks nothing; closing its last asks about unsaved changes, and quitting asks once per document. Switch Windows lists every window. The web app keeps one window |

@@ -197,7 +197,8 @@ pub fn customize_keyboard(app: &mut WordApp, ui: &mut Ui, f: &mut KeyboardForm) 
     let (left, right) = (170.0, 300.0);
 
     heading(ui, "Choose a command");
-    ui.add(egui::TextEdit::singleline(&mut f.filter).hint_text(tl!("Search")).desired_width(left + right + 8.0));
+    let search = ui.add(egui::TextEdit::singleline(&mut f.filter).hint_text(tl!("Search")).desired_width(left + right + 8.0));
+    crate::widgets::named_input(search, tl!("Search"));
     let mut cats: Vec<(String, String)> = categories(app).into_iter().map(|c| (c.clone(), tl!(&c).to_string())).collect();
     cats.push((ALL.to_string(), tl!("All Commands").to_string()));
     let cmds: Vec<(String, String)> = matching_commands(app, &f.category, &f.filter);

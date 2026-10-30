@@ -1,0 +1,18 @@
+{"empty": true, "width": 1280, "height": 800, "pixelsPerPoint": 1}
+{"method": "engine.execute", "params": {"command": "ui.theme", "params": {"value": "light"}}}
+{"method": "engine.execute", "params": {"command": "ui.animations", "params": {"value": "off"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "Original wording here."}}}
+{"method": "engine.execute", "params": {"command": "ui.tab", "params": {"tab": "Review"}}}
+{"steps": 6}
+{"clickLabel": "Reviewing Pane"}
+{"method": "ui.inspect", "expect": {"result": {"dirty": true}}}
+{"shot": "reviewing-empty.png"}
+{"audit": "reviewing-empty", "strict": true}
+{"method": "engine.execute", "params": {"command": "review.trackChanges", "params": {"value": true}}}
+{"method": "engine.execute", "params": {"command": "select.text", "params": {"text": "wording"}}}
+{"method": "engine.execute", "params": {"command": "text.insert", "params": {"text": "text"}}}
+{"steps": 8}
+{"shot": "reviewing-changes.png"}
+{"clickLabel": "Accept"}
+{"steps": 8}
+{"shot": "reviewing-accepted.png"}

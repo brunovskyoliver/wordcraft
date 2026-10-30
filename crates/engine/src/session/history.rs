@@ -196,6 +196,7 @@ impl Session {
         self.note_body_replaced();
         self.refresh_math_session();
         self.touch();
+        self.dirty = !self.saved_doc.as_ref().is_some_and(|saved| saved.same_content(&self.doc));
         true
     }
 
@@ -221,6 +222,7 @@ impl Session {
         self.note_body_replaced();
         self.refresh_math_session();
         self.touch();
+        self.dirty = !self.saved_doc.as_ref().is_some_and(|saved| saved.same_content(&self.doc));
         true
     }
 

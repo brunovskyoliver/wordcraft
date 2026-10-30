@@ -1,5 +1,5 @@
 use super::bookmarks::{bookmark, enclose_preview, icons_body};
-use super::chrome::{buttons, color_field};
+use super::chrome::{buttons, close_button, color_field};
 use super::find::{FindTab, SEARCH_SUGGESTIONS, command_matches, find_in_navigation_pane, goto_body, special_menu, swallow_shortcut_text};
 use super::font::{apply_font, preview_size};
 use super::forms::{cell_margins_dialog, custom_properties, table_properties};
@@ -121,7 +121,15 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         return false;
     };
     // Build the sample text format for the preview pane below.
-    let preview_size = preview_size(size);
+    // An invalid draft keeps the last valid sample rather than shrinking it to the minimum.
+    let preview_id = egui::Id::unique("font_preview_size");
+    let preview_size = if wordcraft_engine::cmd::format::normalize_font_size(size.trim().parse().unwrap_or(f32::NAN)).is_ok() {
+        let shown = preview_size(size);
+        ui.data_mut(|d| d.insert_temp(preview_id, shown));
+        shown
+    } else {
+        ui.data(|d| d.get_temp(preview_id)).unwrap_or(12.0)
+    };
     let preview_color = wordcraft_doc::Rgb::parse(color).map(crate::theme::c32).unwrap_or_else(|| ui.visuals().text_color());
     let mut fmt =
         egui::TextFormat { font_id: egui::FontId::new(preview_size, egui::FontFamily::Proportional), color: preview_color, ..Default::default() };
@@ -509,8 +517,8 @@ fn enclose_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.add_space(6.0);
     ui.horizontal_top(|ui| {
         ui.vertical(|ui| {
-            ui.label(tl!("Text:"));
-            ui.add(egui::TextEdit::singleline(text).desired_width(110.0).char_limit(2));
+            let label = ui.label(tl!("Text:"));
+            ui.add(egui::TextEdit::singleline(text).desired_width(110.0).char_limit(2)).labelled_by(label.id);
             ui.add_space(6.0);
             enclose_preview(ui, style, text, shape);
         });
@@ -697,9 +705,12 @@ fn page_setup_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
 }
 
 fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
-    let Dialog::Link { url, text, message, place, targets, pick, focus } = d else {
+    let Dialog::Link { context, url, text, message, place, targets, pick, focus } = d else {
         return false;
     };
+    if context.is_none() {
+        ui.colored_label(ui.visuals().error_fg_color, tl!("Select ordinary text in one paragraph, then reopen this dialog."));
+    }
     // Word's "Link to:" choices; the places are read once, when that tab is first shown.
     ui.horizontal(|ui| {
         ui.label(tl!("Link to:"));
@@ -711,7 +722,7 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.add_space(4.0);
     egui::Grid::new("lnk").num_columns(2).show(ui, |ui| {
         let label = ui.label(tl!("Text to display:"));
-        ui.text_edit_singleline(text).labelled_by(label.id);
+        ui.add_enabled(context.is_some(), egui::TextEdit::singleline(text)).labelled_by(label.id);
         ui.end_row();
         if !*place {
             let label = ui.label(tl!("Address:"));
@@ -786,7 +797,7 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     if !ok {
         return false;
     }
-    let params = if *place {
+    let mut params = if *place {
         let Some((mut params, _)) = pick.clone() else {
             *message = tl!("Choose a place in this document.").to_string();
             return false;
@@ -798,9 +809,18 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     } else {
         json!({"url": url, "text": text})
     };
-    match app.run("insert.link", params) {
+    if text.is_empty()
+        && context.as_ref().is_some_and(|c| c.text.is_empty())
+        && let Some(params) = params.as_object_mut()
+    {
+        params.remove("text");
+    }
+    params["target"] = json!(context);
+    match app.run("insert.editLink", params) {
         Ok(_) => true,
         Err(error) => {
+            // The dialog shows the refusal; it isn't left on the status line after a correction.
+            app.status_msg = None;
             *message = error;
             *focus = !*place;
             false
@@ -832,8 +852,7 @@ fn word_count_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     {
         *stats = v;
     }
-    let (ok, cancel) = buttons(ui, tl!("Close"));
-    ok || cancel
+    close_button(ui)
 }
 
 fn zoom_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -848,7 +867,7 @@ fn zoom_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     // Logarithmic like the status bar slider, and wide enough to aim: the default 100 pt
     // linear slider jumped from 100% to 480% within a short drag (issue #67).
     ui.spacing_mut().slider_width = 220.0;
-    ui.add(egui::Slider::new(percent, 10.0..=500.0).logarithmic(true).step_by(1.0).suffix("%").text(tl!("Zoom")));
+    crate::widgets::slider(ui, egui::Slider::new(percent, 10.0..=500.0).logarithmic(true).step_by(1.0).suffix("%").text(tl!("Zoom")));
     let mut fit = None;
     ui.horizontal(|ui| {
         if ui.button(tl!("Page width")).clicked() {
@@ -877,8 +896,8 @@ fn watermark_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         return false;
     };
     ui.horizontal(|ui| {
-        ui.label(tl!("Text:"));
-        ui.text_edit_singleline(text);
+        let label = ui.label(tl!("Text:"));
+        ui.text_edit_singleline(text).labelled_by(label.id);
     });
     ui.horizontal(|ui| {
         ui.radio_value(diagonal, true, tl!("Diagonal"));
@@ -951,11 +970,11 @@ fn new_style_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         return false;
     };
     egui::Grid::new("ns").num_columns(2).show(ui, |ui| {
-        ui.label(tl!("Name:"));
-        ui.text_edit_singleline(name);
+        let label = ui.label(tl!("Name:"));
+        ui.text_edit_singleline(name).labelled_by(label.id);
         ui.end_row();
-        ui.label(tl!("Style based on:"));
-        ui.text_edit_singleline(based_on);
+        let label = ui.label(tl!("Style based on:"));
+        ui.text_edit_singleline(based_on).labelled_by(label.id);
         ui.end_row();
     });
     ui.label(egui::RichText::new(tl!("The new style takes the formatting of the current paragraph.")).small().weak());
@@ -1041,6 +1060,7 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         ui.ctx().input_mut(|i| i.events.retain(|e| !swallow_shortcut_text(swallow, e)));
     }
     let r = ui.add(egui::TextEdit::singleline(query).hint_text(tl!("Type a command, e.g. \"insert table\"")).desired_width(380.0));
+    let r = crate::widgets::named_input(r, tl!("Search Commands"));
     // Only when it lacks focus: `request_focus` always interrupts IME, and on X11 that
     // recreates the XIM context, so asking every frame left fcitx taking no keys (#2986).
     if !r.has_focus() && crate::modal_input::keys_enabled(ui) {
@@ -1146,8 +1166,7 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.label(egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.")).small().weak());
         }
     }
-    let (ok, cancel) = buttons(ui, tl!("Close"));
-    ok || cancel
+    close_button(ui)
 }
 
 fn discard_recovery_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -1249,8 +1268,8 @@ fn insert_merge_field_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> 
         });
     }
     ui.horizontal(|ui| {
-        ui.label(tl!("Field:"));
-        ui.text_edit_singleline(field);
+        let label = ui.label(tl!("Field:"));
+        ui.text_edit_singleline(field).labelled_by(label.id);
     });
     let (ok, cancel) = buttons(ui, tl!("Insert"));
     if ok && !field.trim().is_empty() {
@@ -1267,8 +1286,8 @@ fn password_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.label(crate::i18n::fmt(tl!("{name} is protected with a password."), &[("name", name)]));
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(tl!("Password:"));
-        let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0));
+        let label = ui.label(tl!("Password:"));
+        let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0)).labelled_by(label.id);
         if password.is_empty() && !r.has_focus() && crate::modal_input::keys_enabled(ui) {
             r.request_focus();
         }
@@ -1305,14 +1324,14 @@ fn encrypt_password_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bo
     ui.label(tl!("Anyone who opens the document will need this password."));
     ui.add_space(4.0);
     egui::Grid::new("encrypt_password").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.label(tl!("Password:"));
-        let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0));
+        let label = ui.label(tl!("Password:"));
+        let r = ui.add(egui::TextEdit::singleline(password.as_mut_string()).password(true).desired_width(220.0)).labelled_by(label.id);
         if password.is_empty() && confirm.is_empty() && !r.has_focus() && crate::modal_input::keys_enabled(ui) {
             r.request_focus();
         }
         ui.end_row();
-        ui.label(tl!("Confirm password:"));
-        ui.add(egui::TextEdit::singleline(confirm.as_mut_string()).password(true).desired_width(220.0));
+        let label = ui.label(tl!("Confirm password:"));
+        ui.add(egui::TextEdit::singleline(confirm.as_mut_string()).password(true).desired_width(220.0)).labelled_by(label.id);
         ui.end_row();
     });
     ui.label(
@@ -1352,8 +1371,8 @@ fn field_code_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     let Dialog::FieldCode { code, edit, message } = d else {
         return false;
     };
-    ui.label(tl!("Field codes:"));
-    let r = ui.add(egui::TextEdit::singleline(code).desired_width(320.0).font(egui::TextStyle::Monospace));
+    let label = ui.label(tl!("Field codes:"));
+    let r = ui.add(egui::TextEdit::singleline(code).desired_width(320.0).font(egui::TextStyle::Monospace)).labelled_by(label.id);
     if !r.has_focus() && code.is_empty() && crate::modal_input::keys_enabled(ui) {
         r.request_focus();
     }
@@ -1416,8 +1435,8 @@ fn find_recipient_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool
         return false;
     };
     ui.horizontal(|ui| {
-        ui.label(tl!("Find:"));
-        ui.text_edit_singleline(text);
+        let label = ui.label(tl!("Find:"));
+        ui.text_edit_singleline(text).labelled_by(label.id);
     });
     if !message.is_empty() {
         ui.label(egui::RichText::new(message.as_str()).small().weak());
@@ -1488,9 +1507,9 @@ fn merge_rule_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     }));
     ui.add_space(4.0);
     egui::Grid::new("merge_rule").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.label(tl!("Field:"));
+        let field_label = ui.label(tl!("Field:"));
         if fields.is_empty() {
-            ui.text_edit_singleline(field);
+            ui.text_edit_singleline(field).labelled_by(field_label.id);
         } else {
             craft_ui::ComboBox::from_id_salt("merge_rule_field").selected_text(field.as_str()).width(200.0).show_ui(ui, |ui| {
                 for f in fields.iter() {
@@ -1499,15 +1518,15 @@ fn merge_rule_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             });
         }
         ui.end_row();
-        ui.label(tl!("Equals:"));
-        ui.text_edit_singleline(value);
+        let label = ui.label(tl!("Equals:"));
+        ui.text_edit_singleline(value).labelled_by(label.id);
         ui.end_row();
         if !skip {
-            ui.label(tl!("Then insert:"));
-            ui.text_edit_singleline(then);
+            let label = ui.label(tl!("Then insert:"));
+            ui.text_edit_singleline(then).labelled_by(label.id);
             ui.end_row();
-            ui.label(tl!("Otherwise insert:"));
-            ui.text_edit_singleline(els);
+            let label = ui.label(tl!("Otherwise insert:"));
+            ui.text_edit_singleline(els).labelled_by(label.id);
             ui.end_row();
         }
     });
@@ -1540,8 +1559,7 @@ fn match_fields_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
             }
         });
     }
-    let (ok, cancel) = buttons(ui, tl!("Close"));
-    ok || cancel
+    close_button(ui)
 }
 
 fn check_errors_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
@@ -1560,6 +1578,5 @@ fn check_errors_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
     }
     ui.add_space(4.0);
     ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Recipients: {count}"), &[("count", &records.to_string())])).weak());
-    let (ok, cancel) = buttons(ui, tl!("Close"));
-    ok || cancel
+    close_button(ui)
 }

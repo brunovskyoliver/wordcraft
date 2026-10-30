@@ -86,9 +86,9 @@ impl Session {
         }
         // Receipt-bound replacement must succeed before it can become a relative replay step.
         // Keeping its original receipt would make every later Repeat or macro invocation stale.
-        let defer_synonym_replay = id == "review.replaceSynonym";
         // Macro recording and Repeat.
-        let record = !defer_synonym_replay
+        let deferred_replay = defers_replay(id);
+        let record = !deferred_replay
             && !matches!(id, "tools.recordMacro" | "tools.macros" | "edit.undo" | "edit.redo" | "edit.repeat")
             && (spec.mutates || id.starts_with("caret.") || id.starts_with("select."));
         // A password never lands in a recorded macro or Repeat.
@@ -102,7 +102,7 @@ impl Session {
         if record && let Some((_, steps)) = self.recording.as_mut() {
             steps.push((id.to_string(), kept()));
         }
-        if !defer_synonym_replay && spec.mutates && !matches!(id, "edit.undo" | "edit.redo" | "edit.repeat") {
+        if !deferred_replay && spec.mutates && !matches!(id, "edit.undo" | "edit.redo" | "edit.repeat") {
             self.last_command = Some((id.to_string(), kept()));
         }
         // Typing, caret movement and selection outside the equation commands leave the equation.
@@ -276,8 +276,32 @@ impl Session {
                 self.status = e.to_string();
             }
         }
-        self.record_synonym_replay(defer_synonym_replay && result.is_ok(), params);
+        self.record_deferred_replay(id, result.is_ok(), params);
         result
+    }
+
+    /// Records a replay step held back until its command had succeeded.
+    fn record_deferred_replay(&mut self, id: &str, succeeded: bool, params: &Value) {
+        self.record_link_replay(id, succeeded, params);
+        self.record_synonym_replay(id == "review.replaceSynonym" && succeeded, params);
+    }
+
+    /// A link's document receipt is not relative: Repeat and macros keep only its request, and
+    /// only once it has succeeded.
+    fn record_link_replay(&mut self, id: &str, succeeded: bool, params: &Value) {
+        if !succeeded || !matches!(id, "insert.link" | "insert.editLink") {
+            return;
+        }
+        let mut relative = params.clone();
+        if let Some(p) = relative.as_object_mut() {
+            p.remove("target");
+            p.remove("password");
+        }
+        let replay = ("insert.link".to_string(), relative);
+        if let Some((_, steps)) = self.recording.as_mut() {
+            steps.push(replay.clone());
+        }
+        self.last_command = Some(replay);
     }
 
     /// Record only a successful replacement after the protected-region post-check. A refused
@@ -460,4 +484,9 @@ impl Session {
         }
         result
     }
+}
+
+/// Commands bound to a receipt, whose relative replay step is recorded only after they succeed.
+fn defers_replay(id: &str) -> bool {
+    matches!(id, "review.replaceSynonym" | "insert.link" | "insert.editLink")
 }

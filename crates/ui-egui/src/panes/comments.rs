@@ -129,7 +129,7 @@ pub(crate) fn comment_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Opti
     if let Some(f) = font {
         edit = edit.font(f);
     }
-    let r = ui.add(edit);
+    let r = crate::widgets::named_input(ui.add(edit), tl!("Comment"));
     if focus && owns_input {
         r.request_focus();
     }
@@ -190,7 +190,7 @@ pub(crate) fn reply_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Option
     if let Some(f) = font {
         edit = edit.font(f);
     }
-    let r = ui.add(edit);
+    let r = crate::widgets::named_input(ui.add(edit), tl!("Reply"));
     if focus && owns_input {
         r.request_focus();
     }

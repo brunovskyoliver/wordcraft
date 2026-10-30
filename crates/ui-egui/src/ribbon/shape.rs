@@ -1,7 +1,7 @@
 use super::arrange::{align_menu, rotate_menu, rotation_field, wrap_menu};
 use super::common::{mi, stack};
 use super::language::mi_check;
-use super::{Target, Ui, WordApp, big, group, json, menu_button, small, vec2};
+use super::{MeasureExt, Target, Ui, WordApp, big, group, json, menu_button, small, vec2};
 
 /// Shape Fill › Gradient: No Gradient, Light and Dark Variations of the shape's colour, More
 /// Gradients… (the Format Shape pane).
@@ -136,17 +136,26 @@ pub(super) fn shape_format(app: &mut WordApp, ui: &mut Ui) {
             wordcraft_engine::cmd::objects::selected(&app.session).and_then(|(_, o)| o.frame().map(|(w, h, _)| (w, h))).unwrap_or((0.0, 0.0));
         stack(ui, |ui| {
             crate::widgets::row(ui, |ui| {
-                for (label, key, v0) in [("W:", "width", w0), ("H:", "height", h0)] {
-                    ui.label(egui::RichText::new(tl!(label)).small());
-                    let mut v = v0;
+                let unit = crate::options::unit();
+                let k = unit.pt_per_unit();
+                for (label, key, pt) in [("W:", "width", w0), ("H:", "height", h0)] {
+                    let name = ui.label(egui::RichText::new(tl!(label)).small());
+                    let was = pt / k;
+                    let mut v = was;
                     // `picture.size`'s own range; a size outside it (a thin line) is shown as it
                     // is (clamped, egui would report a change and resize the shape unasked).
-                    let r = ui.add(egui::DragValue::new(&mut v).speed(1.0).range(1.0..=4000.0).clamp_existing_to_range(false).suffix(" pt"));
-                    if r.changed() && v != v0 {
+                    let field = egui::DragValue::new(&mut v)
+                        .speed(1.0 / k)
+                        .range(1.0 / k..=4000.0 / k)
+                        .clamp_existing_to_range(false)
+                        .measure(unit)
+                        .max_decimals(2);
+                    let r = ui.add(field).labelled_by(name.id);
+                    if r.changed() && v != was {
                         if r.dragged() && !r.drag_started() {
                             app.session.join_next_undo();
                         }
-                        let _ = app.run("picture.size", json!({key: v, "lockAspect": false}));
+                        let _ = app.run("picture.size", json!({key: v * k, "lockAspect": false}));
                     }
                 }
             });

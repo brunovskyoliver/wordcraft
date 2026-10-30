@@ -265,8 +265,8 @@ pub(crate) fn recipient_list(
     ui.add_enabled(order.is_some(), merged_only);
     let visible = ui
         .horizontal(|ui| {
-            ui.label(tl!("Find in list:"));
-            ui.add(egui::TextEdit::singleline(&mut filter.find).desired_width(180.0).hint_text(tl!("Any field")));
+            let label = ui.label(tl!("Find in list:"));
+            ui.add(egui::TextEdit::singleline(&mut filter.find).desired_width(180.0).hint_text(tl!("Any field"))).labelled_by(label.id);
             // The rows the grid shows, by real index: edits and removes go to the right record.
             let fresh = visible_recipients(rows, order.as_deref(), &filter.find, filter.only_merged);
             let visible = hold_rows(fresh, &mut filter.held, editing, rows.len());
@@ -445,7 +445,8 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
                     ui.selectable_value(&mut r.op, op, tl!(op.label()));
                 }
             });
-            ui.add_enabled(r.op.has_value(), egui::TextEdit::singleline(&mut r.value).desired_width(130.0));
+            let value = ui.add_enabled(r.op.has_value(), egui::TextEdit::singleline(&mut r.value).desired_width(130.0));
+            crate::widgets::named_input(value, tl!("Value"));
             if ui.add(egui::Button::new("×").small()).on_hover_text(tl!("Remove condition")).clicked() {
                 remove = Some(i);
             }

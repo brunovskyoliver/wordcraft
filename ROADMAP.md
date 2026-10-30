@@ -142,6 +142,7 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 
 ## Progress log
 
+- 2026-10-31: UI-AUDIT-003: Hyperlink label and address editing; Undo back to the saved content clears unsaved changes; a real Reviewing Pane; Show Notes and no-op navigation commands no longer do nothing silently; View › Split disabled until a second pane exists (open gap); accessible names across dialogs and panes; `ui_shot` gained label clicks and a geometry audit. All eight CI gates pass (4,718 tests). No live Word comparison; the mission remains open. See `docs/ui-audit.md`.
 - 2026-10-29: UI-AUDIT-002: repaired Font/Hyperlink validation, Selection/Thesaurus presentation, modal ownership, compact customization/Options/galleries/Print and Read Aloud accessibility. Added portable scenario replays and regression coverage. All eight CI gates pass; final replay covers 36 scenarios/442 assertions/148 inspected images. Stop after cycle 02 at owner request; [remaining gaps and exact continuation](docs/ui-audit.md) stay open.
 - 2026-10-29: UI-AUDIT-001: Read Mode settings use a compact View menu; tall dialogs scroll vertically; short forms retain their size; modal keyboard input is isolated while modeless navigation remains editable. Screenshot scenarios, accessibility regressions and a Linux Zotero peer-race fix pass all eight CI gates (4,617 workspace tests). The audit still has major open defects, including background pointer commands behind Font. Readiness is not re-assessed. See [the audit matrix](docs/ui-audit.md).
 

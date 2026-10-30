@@ -44,3 +44,8 @@ external cycle-02 evidence; Backstage Rust regressions create their own temporar
 tests additionally check modal pointer ownership, protection, accessible names, responsive geometry
 and command-picker filtering. Captures and command registration counts do not establish complete
 Word parity. Current findings and review limits are recorded in `docs/ui-audit.md`.
+
+## Cycle 03
+
+`cycle-03/reviewing-pane.jsonl` covers the Reviewing Pane through accessible-name clicks and a
+strict geometry audit. `clickLabel` and `audit` steps are described in the `ui_shot` header.

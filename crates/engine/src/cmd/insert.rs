@@ -17,8 +17,8 @@ pub(crate) use header_footer::saved_copy;
 use header_footer::{create_hf, edit_hf, header_footer, new_empty_headers, strip_headers};
 pub use items::{DropCapState, drop_cap_state, format_date, format_date_parts};
 use items::{cover_page, date_time, drop_cap, drop_cap_off, field, page_number, symbol};
-use links::{bookmark, delete_bookmark, link, link_targets};
-pub use links::{bookmark_name_ok, bookmark_range, bookmark_span};
+pub use links::{LinkContext, bookmark_name_ok, bookmark_range, bookmark_span, link_context};
+use links::{bookmark, delete_bookmark, edit_link, link, link_targets};
 pub use objects::{base64_decode, base64_encode};
 use objects::{icon, shape, table, text_box};
 pub(crate) use objects::{image_ext, picture};
@@ -51,9 +51,12 @@ pub fn specs() -> Vec<CommandSpec> {
                 matches!(s.sel.focus.story, StoryRef::Part(id) if s.doc.parts.get(&id).is_some_and(|p| p.kind == PartKind::TextBox))
                     .then_some("text boxes can't go inside a text box")
             }),
-        CommandSpec::new("insert.link", "Link", "Insert › Links", link).key("Mod+K").params(
-            r#"{"url": string} | {"bookmark": name} | {"heading": block (see link.targets)} | {"top": true}, "text"?: string (Place in This Document: a bookmark, a heading or the top of the document)"#,
+        CommandSpec::new("insert.link", "Link", "Insert › Links", link).when(links::link_enabled).key("Mod+K").params(
+            r#"{"url": string} | {"bookmark": name} | {"heading": block (see link.targets)} | {"top": true}, "text"?: nonempty ordinary text (replaces a single-paragraph label; unchanged text preserves runs; caret strictly inside a link edits the whole link; Place in This Document: a bookmark, a heading or the top of the document)"#,
         ),
+        CommandSpec::new("insert.editLink", "Link", "Insert › Links", edit_link).when(links::link_enabled).automation_only()
+            .params(r#"{"target": LinkContext, "url"?: string, "text"?: string, "bookmark"?: string, "heading"?: number, "top"?: bool}; target from link_context; stale targets are refused"#),
+        CommandSpec::new("link.context", "Link Context", "Insert › Links", |s, _| Ok(json!(link_context(s)))).pure().automation_only(),
         CommandSpec::new("link.targets", "Link", "Insert › Links", link_targets).pure(),
         CommandSpec::new("insert.removeLink", "Remove Hyperlink", "Insert › Links", |s, _| super::format::apply(s, &|c| {
             c.link = None;

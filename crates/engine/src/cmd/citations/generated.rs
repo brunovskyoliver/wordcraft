@@ -149,6 +149,11 @@ fn caption_body(p: &Paragraph, label: &str) -> String {
 pub(super) const ENTRY_STYLE: &str = "ListEntry";
 
 /// Rebuild every generated list.
+/// Why Update Index and Update Table of Figures have nothing to do.
+pub fn nothing_generated(s: &Session) -> Option<&'static str> {
+    (!s.doc.body.iter().any(|b| b.as_para().and_then(list_kind).is_some())).then_some("the document has no index or generated table to update")
+}
+
 pub fn update_generated(s: &mut Session) -> Result<(), CmdError> {
     let mut i = 0;
     while i < s.doc.body.len() {

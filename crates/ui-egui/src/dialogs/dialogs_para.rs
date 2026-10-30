@@ -633,17 +633,18 @@ fn lines(ui: &mut Ui, id: &str, l: &mut LineForm, theme: &[Rgb], fill: Option<Rg
         });
         ui.add_space(8.0);
         ui.vertical(|ui| {
-            ui.label(tl!("Style:"));
+            let style_label = ui.label(tl!("Style:"));
             let current = STYLES.iter().find(|(s, _)| *s == l.style).map(|(_, n)| *n).unwrap_or("Single");
-            craft_ui::ComboBox::from_id_salt((id, "style")).selected_text(tl!(current)).width(120.0).show_ui(ui, |ui| {
+            let combo = craft_ui::ComboBox::from_id_salt((id, "style")).selected_text(tl!(current)).width(120.0).show_ui(ui, |ui| {
                 for (s, n) in STYLES {
                     ui.selectable_value(&mut l.style, s, tl!(n));
                 }
             });
+            combo.response.labelled_by(style_label.id);
             ui.label(tl!("Color:"));
             color_menu(ui, theme, &mut l.color);
-            ui.label(tl!("Width:"));
-            craft_ui::ComboBox::from_id_salt((id, "width"))
+            let width_label = ui.label(tl!("Width:"));
+            let combo = craft_ui::ComboBox::from_id_salt((id, "width"))
                 .selected_text(crate::i18n::fmt(tl!("{n} pt"), &[("n", &l.width.to_string())]))
                 .width(120.0)
                 .show_ui(ui, |ui| {
@@ -651,6 +652,7 @@ fn lines(ui: &mut Ui, id: &str, l: &mut LineForm, theme: &[Rgb], fill: Option<Rg
                         ui.selectable_value(&mut l.width, w, crate::i18n::fmt(tl!("{n} pt"), &[("n", &w.to_string())]));
                     }
                 });
+            combo.response.labelled_by(width_label.id);
         });
         ui.add_space(8.0);
         ui.vertical(|ui| {

@@ -98,6 +98,7 @@ pub(super) fn icons_body(app: &mut WordApp, ui: &mut Ui, query: &mut String, cat
     ui.set_width(560.0);
     // Typing goes to the search box (never to the document behind the dialog).
     let r = ui.add(egui::TextEdit::singleline(query).hint_text(tl!("Search icons")).desired_width(560.0));
+    let r = crate::widgets::named_input(r, tl!("Search icons"));
     if !r.has_focus() {
         r.request_focus();
     }

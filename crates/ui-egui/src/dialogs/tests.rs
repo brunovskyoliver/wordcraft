@@ -1974,3 +1974,106 @@ fn synonym_helpers_are_registered_but_not_offered_in_command_pickers() {
     assert!(command_matches(app.session.registry.get("arrange.selectionPane").unwrap(), "selection pane"));
     assert!(dialogs_keyboard::commands(&app, "Review").iter().any(|(id, _)| *id == "review.thesaurus"));
 }
+
+#[test]
+fn hyperlink_dialog_changes_selected_label_and_preloads_link_at_caret() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("link");
+    let original = h.state().session.doc.clone();
+    let selection = h.state().session.sel.clone();
+    set_text_field(&mut h, "Text to display:", "Revised title");
+    set_text_field(&mut h, "Address:", "https://example.invalid/updated");
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(4);
+    assert!(h.state().dialog.is_none());
+    assert_eq!(h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body), "Revised title Beta");
+    assert_eq!(h.state().session.undo_depth(), 1);
+    h.state_mut().session.sel = wordcraft_engine::Selection::caret(Pos::body(0, 3));
+    h.state_mut().run("ui.dialog", json!({"name": "link"})).unwrap();
+    h.run_steps(4);
+    let Some(Dialog::Link { text, url, .. }) = &h.state().dialog else { panic!("missing link dialog") };
+    assert_eq!(text, "Revised title");
+    assert_eq!(url, "https://example.invalid/updated");
+    h.get_by_label("Cancel").click();
+    h.run_steps(3);
+    h.state_mut().run("edit.undo", json!({})).unwrap();
+    assert!(original.same_content(&h.state().session.doc));
+    assert_eq!(h.state().session.sel, selection);
+}
+
+#[test]
+fn hyperlink_dialog_stale_draft_retains_inputs_without_retargeting() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("link");
+    set_text_field(&mut h, "Text to display:", "Draft title");
+    set_text_field(&mut h, "Address:", "https://example.invalid/draft");
+    h.state_mut().session.sel = wordcraft_engine::Selection::caret(Pos::body(0, 6));
+    let original = h.state().session.doc.clone();
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(4);
+    let Some(Dialog::Link { text, message, .. }) = &h.state().dialog else { panic!("stale draft discarded") };
+    assert_eq!(text, "Draft title");
+    assert!(message.contains("changed"));
+    assert!(h.get_by_role_and_label(Role::TextInput, "Address:").is_focused());
+    assert!(original.same_content(&h.state().session.doc));
+    assert!(!h.state().session.can_undo());
+}
+
+/// AUD-032: a refused address shows in the dialog only, so a corrected link leaves no stale error.
+#[test]
+fn hyperlink_dialog_refusal_leaves_no_status_message() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    let mut h = validation_dialog("link");
+    set_text_field(&mut h, "Address:", "");
+    h.get_by_role_and_label(Role::Button, "OK").click();
+    h.run_steps(4);
+    let Some(Dialog::Link { message, .. }) = &h.state().dialog else { panic!("draft discarded") };
+    assert!(!message.is_empty());
+    assert!(h.state().status_msg.is_none(), "the dialog carries the refusal");
+}
+
+/// Text fields whose only caption was a neighbouring label or a hint had no accessible name.
+#[test]
+fn dialog_text_fields_have_accessible_names() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::{NodeT, Queryable};
+    for name in [
+        "commands",
+        "customizeKeyboard",
+        "customizeRibbon",
+        "enclose",
+        "fieldCode",
+        "findRecipient",
+        "icons",
+        "insertMergeField",
+        "noteOptions",
+        "recipientList",
+        "ruleIf",
+        "ruleSkipIf",
+        "templates",
+    ] {
+        let h = validation_dialog(name);
+        let unnamed = h.query_all_by_role(Role::TextInput).filter(|n| n.accesskit_node().label().unwrap_or_default().trim().is_empty()).count();
+        assert_eq!(unnamed, 0, "{name}");
+    }
+}
+
+/// An informational dialog has one way out: Close, not a second Cancel doing the same.
+#[test]
+fn information_dialogs_only_offer_close() {
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    for name in ["about", "wordCount", "checkErrors"] {
+        let mut h = validation_dialog(name);
+        assert!(h.query_by_role_and_label(Role::Button, "Cancel").is_none(), "{name}");
+        // The last Close is the footer's; the first is the title bar's.
+        if let Some(close) = h.query_all_by_role_and_label(Role::Button, "Close").last() {
+            close.click();
+        }
+        h.run_steps(4);
+        assert!(h.state().dialog.is_none(), "{name}");
+    }
+}

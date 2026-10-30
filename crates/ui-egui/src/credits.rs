@@ -222,8 +222,8 @@ pub fn contributors_ui(ui: &mut egui::Ui) {
             }
         }
         ui.separator();
-        ui.label(tl!("Sort"));
-        craft_ui::ComboBox::from_id_salt("credits_sort").selected_text(tl!(v.key.label().0)).show_ui(ui, |ui| {
+        let sort_label = ui.label(tl!("Sort"));
+        let combo = craft_ui::ComboBox::from_id_salt("credits_sort").selected_text(tl!(v.key.label().0)).show_ui(ui, |ui| {
             for k in SortKey::ALL {
                 if ui.selectable_label(v.key == k, tl!(k.label().0)).clicked() {
                     v.key = k;
@@ -231,6 +231,7 @@ pub fn contributors_ui(ui: &mut egui::Ui) {
                 }
             }
         });
+        combo.response.labelled_by(sort_label.id);
         if ui.button(if v.ascending { "▲" } else { "▼" }).on_hover_text(tl!("Reverse the order")).clicked() {
             v.ascending = !v.ascending;
         }

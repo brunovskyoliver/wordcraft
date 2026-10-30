@@ -1,9 +1,10 @@
 # UI audit and regression backlog
 
-> Last reviewed: 2026-10-29 · Last updated: 2026-10-29 · Status: two repair cycles verified; owner-requested stop after cycle 02; broader audit and major defects remain open. No completeness or readiness claim.
+> Last reviewed: 2026-10-31 · Last updated: 2026-10-31 · Status: three repair cycles; cycle 03 adds geometry and inert-control sweeps; broader audit and parity gaps remain open. No completeness or readiness claim.
 
 Task UI-AUDIT-001 resumes the comprehensive Word parity mission from baseline `aadb077e`.
 Cycle 02 is tracked as UI-AUDIT-002, based on verified commit `9785d1cb`.
+Cycle 03 is tracked as UI-AUDIT-003, based on `2a6421a2`.
 Evidence lives in `~/agent-runs/2026-10-29-wordcraft-ui-audit/`.
 
 ## Acceptance and method
@@ -198,18 +199,18 @@ Individual tabs, validation and cancel/apply states must be split during executi
 | AUD-005 | Major | Define New Multilevel List at 1024×480 / 2× loses title and footer beyond viewport. Evidence: before/1024x480-dialog-defineList.png. Shared window has no vertical scroll area. | Fixed; final titles/footers inspected, scrolling and Cancel regressions pass |
 | AUD-006 | Major behavior | Actual Font UI accepts size 0 into document properties; malformed size abc is ignored while other changes apply and dialog closes. | Invalid → corrected → undo scenarios pass at four profiles; all Font captures inspected. Verified within the tested scope; all eight CI gates pass. |
 | AUD-007 | Critical interaction | Font open on selected text still permits canvas typing; Escape cancels the dialog and collapses the document selection. Baseline control replays confirm both. | Fixed; modal/modeless keyboard, selection and synthetic IME regressions pass |
-| AUD-008 | Minor visual | Zoom dialog slider rail is white on white; only thumb/value visible. The same low-contrast rail appears in Accessibility Read Aloud speed. | Confirmed in initial Zoom and final cycle-02 Accessibility captures; open |
+| AUD-008 | Minor visual | Zoom dialog slider rail is white on white; only thumb/value visible. The same low-contrast rail appears in Accessibility Read Aloud speed. | Fixed in cycle 03: shared slider helper paints the rail in the strong border color at all seven sites; status bar captures inspected |
 | AUD-009 | Major behavior | Selecting Subscript on superscript text leaves both boxes checked; OK keeps superscript. | Mutual-exclusion/undo UI test and screenshot replay pass. Verified within the tested scope; all eight CI gates pass. |
 | AUD-010 | Major interaction | Actual Selection Pane and Thesaurus clicks show no result, while pure command probes return objects and synonyms. Evidence: control-results/README.md. | Selection and Thesaurus panes implemented. Twenty-one behavior scenarios include query-only, focus, insert, delete, repeat, undo, stale targets and empty states; their 60 images inspected. Verified within the tested scope; all eight CI gates pass. |
 | AUD-011 | Accessibility | New tall-dialog regression found six controls without accessible names in Define New Multilevel List. | Fixed; labels bound in List, Insert Table, Zoom and Manage Styles; accessibility regressions pass |
 | AUD-012 | Major visual | Quick Access Toolbar customization at 800×600 clips both sides, including Close and reorder buttons. | Responsive layouts and QAT actions repaired; compact/scaled captures and lower-control scrolling inspected. Verified within the tested scope; all eight CI gates pass. |
 | AUD-013 | Visual regression | Manage Styles expands vertically with a centered Close row and excess blank space. | Fixed; intrinsic footer regression passed and final capture inspected |
 | AUD-014 | Major behavior | Empty Hyperlink Address closes the dialog with an error and loses the draft display text. | Invalid Address draft/selection retained; correction and undo pass at four profiles. AUD-032/034 remain separate gaps. Verified within the tested scope; all eight CI gates pass. |
-| AUD-015 | Minor visual | Folded Table Cell Size fields lack visible input boundaries. | Observed; cause and fix pending |
+| AUD-015 | Minor visual | Folded Table Cell Size fields lack visible input boundaries. | Fixed in cycle 03: a folded group restores ribbon widget visuals instead of the borderless menu style |
 | AUD-016 | Major visual | Compact Print preview footer overlaps page navigation and zoom controls. | Responsive compact/dark/localized Print captures inspected with separate navigation and zoom rows. Verified within the tested scope; all eight CI gates pass. |
 | AUD-017 | Major visual | Compact Options clips fields, Browse buttons, dropdowns and explanatory text across seven categories. | Responsive fields/categories and Advanced boundary repaired; General and Accessibility follow-ups AUD-036/037 now pass regressions and final-source visual review. Verified within the tested scope; all eight CI gates pass. |
 | AUD-018 | Major visual | Compact Home/New crop template cards beyond the right edge without horizontal scrolling. | Built-in and personal cards wrap with bounded captions/tooltips. Compact, dark, scaled and fractional-input captures inspected; card-opening and tooltip geometry regressions included. Verified within the tested scope; all eight CI gates pass. |
-| AUD-019 | Behavior gap | Undo restores original inspected content but retains dirty:true, causing unnecessary save prompts. Session::undo always calls touch(). | Reproduced after Chart/SmartArt insertion; savepoint tracking repair pending |
+| AUD-019 | Behavior gap | Undo restores original inspected content but retains dirty:true, causing unnecessary save prompts. Session::undo always calls touch(). | Fixed in cycle 03: Undo/Redo compare with the saved content; saves move the savepoint and password/recovery/failed-save paths invalidate it; engine regressions pass |
 | AUD-020 | Major regression caught in review | Direct Go To leaves its initial-focus flag set, blocking document keyboard selection; Page also repeatedly steals focus. | Runtime reproduced; one-shot focus correction added; Verified: Page/Bookmark and IME regressions, inspected after replay, full CI pass |
 | AUD-021 | Major visual | At 1024×480 File sidebar clips Options/About and overlaps Close with the community link. | Short sidebar captures expose Options, community and About on separate rows; reachability regression included. Verified within the tested scope; all eight CI gates pass. |
 | AUD-022 | Parity gap | Table Properties is a stacked form; Word documents Table/Row/Column/Cell/Alt Text tabs and additional options. | Public reference comparison recorded; current controls fit but hierarchy/depth parity remains open |
@@ -221,16 +222,44 @@ Individual tabs, validation and cancel/apply states must be split during executi
 | AUD-028 | Major accessibility | Read Aloud transport icons draw and respond to pointer input but expose no named button widget information to the accessibility tree. | Named transport buttons and keyboard/disabled-state regressions implemented; fresh keyboard focus, pause, next and stop replays inspected in both profiles. Audible output untested. Verified within the tested scope; all eight CI gates pass. |
 | AUD-029 | Major accessibility | Customize Ribbon visibility checkboxes have no accessible name; initial integration tests identify 12 unnamed controls. | Each Ribbon visibility checkbox now has its row label as an accessible name; regressions included. Verified within the tested scope; all eight CI gates pass. |
 | AUD-030 | Accessibility | Font/Hyperlink validation text inherits default pure red, below the 4.5 contrast target on light and dark dialog backgrounds. | Theme error color applied with contrast regression; invalid Font/Hyperlink captures inspected in light/dark profiles. Verified within the tested scope; all eight CI gates pass. |
-| AUD-031 | Minor visual | Invalid Font size 0 shrinks the sample to its 6-point minimum while the draft error remains open. | Initial light/dark captures inspected; preview continuity follow-up open |
-| AUD-032 | Minor interaction | A corrected successful Hyperlink still shows its earlier error on the status bar until the existing 6-second expiry. | Initial corrected-applied capture confirms stale message; status lifecycle follow-up open |
+| AUD-031 | Minor visual | Invalid Font size 0 shrinks the sample to its 6-point minimum while the draft error remains open. | Fixed in cycle 03: an invalid draft keeps the last valid sample size |
+| AUD-032 | Minor interaction | A corrected successful Hyperlink still shows its earlier error on the status bar until the existing 6-second expiry. | Fixed in cycle 03 for Hyperlink: the dialog alone shows a refusal; other dialogs not audited for this pattern |
 | AUD-033 | Minor visual | Floating Backstage scrollbar covers the rightmost template edge; different caption heights vertically offset card tops. | Reserved scrollbar gutter and top-aligned gallery rows inspected across built-in/personal galleries. Verified within the tested scope; all eight CI gates pass. |
-| AUD-034 | Major behavior | Hyperlink ignores an edited display label when text is selected; reopening initializes Address to https:// instead of the current link. | Display-label failure reproduced; existing-link initialization source-confirmed; command/UI repair investigation pending |
+| AUD-034 | Major behavior | Hyperlink ignores an edited display label when text is selected; reopening initializes Address to https:// instead of the current link. | Fixed in cycle 03: staged patch reviewed, merged and compiled; label replacement, current-address preload, stale-target refusal, protection, tracking and replay regressions pass (11 engine, 2 UI) |
 | AUD-035 | Major interaction | Search Commands and customization offer receipt/replay synonym helpers as standalone actions; Enter invokes them without required parameters and reports an error. | Automation-only metadata hides receipt/replay and raw pane-visibility helpers from Search/customization. Final-source Search shows only canonical Thesaurus and opens its focused query; registry/picker regression included. Verified within the tested scope; all eight CI gates pass. |
 | AUD-036 | Minor visual | General Options wraps User name and Initials into fragments at 800 and 1440 widths despite available space. | Measured label/field rows replace the default Grid sizing. Regression passes; final compact/normal/scaled/localized captures show whole labels. Verified within the tested scope; all eight CI gates pass. |
 | AUD-037 | Major layout | Accessibility Options speed slider and numeric value widen the 640/150% column, clipping the following Skip citations checkbox too. | Slider reserves measured numeric width and stacks its label when needed. Boundary geometry/checkbox action regression passes; final 640/150% captures fit. Verified within the tested scope; all eight CI gates pass. |
+| AUD-038 | Major behavior | Inert-control sweep: Reviewing Pane and Show Notes ran data queries with no visible result. Next/Previous Comment and Change, Next Footnote and the Update Table family silently did nothing when there was nothing to act on. | Fixed: real Reviewing Pane (list, row selects, Accept/Reject); Show Notes moves to the first note or reports none; Update Table reports when it finds no table of contents; the others are disabled with a reason. Regressions and capture inspected |
+| AUD-039 | Major behavior | View › Split and Ctrl+Alt+S sent a UI request no front end handles, so they did nothing. | Disabled with a reason so it no longer deceives. A real split window remains an open parity gap |
+| AUD-040 | Major accessibility | Geometry sweep and the test harness found about 60 fields, drop-downs and spin buttons without accessible names across dialogs, panes and File › New. | Fixed: labels bound or names added; 0 unnamed in all 220 sweep runs; regression covers 13 dialogs |
+| AUD-041 | Minor interaction | About, Word Count, Check for Errors and Match Fields offered Close and Cancel doing the same thing; Manual Hyphenation left-aligned its Close. | Fixed: one shared right-aligned Close; regression passes |
+| AUD-042 | Minor visual | Compact Review/References/Layout folded groups all drew the same dots icon. | Fixed: each mapped group draws its own original icon; compact captures inspected; unmapped groups still use the fallback |
+| AUD-043 | Minor visual | Shape Format size used points while Picture Format used the document unit. | Fixed: both follow the unit in Options; inches shown in capture |
+| AUD-044 | Minor visual | Outlining: Show Level touches its combo, and the two checkboxes touch. | Spacing added; final capture not separately re-inspected |
+| AUD-045 | Minor visual | Find and Replace action buttons are left-aligned; Word's sit on the right. Read Mode shows Edit Document twice. Recipient List has no visible horizontal scroll indicator at 800 wide. | Observed in cycle 03 sweep; open |
 | AUD-003 | Audit gap | ui-parity.md duplicated modal-dialog, keyboard and pane rows and falsely claimed Thesaurus presentation. | Those rows consolidated; Linux registry remeasured at 163 commands/192 shortcuts; old aggregate estimate marked historical. Other historical rows still require full state review |
 
 ## Verification record
+
+### Cycle 03
+
+`cargo xtask ci` passed all eight gates: 4,718 tests passed, none failed, four existing ignores.
+`cargo xtask parity` is unchanged at 505/520 registered features, which does not measure behavior.
+
+`ui_shot` gained `clickLabel` (click a control by accessible name) and `audit` (controls leaving
+the window, overlapping or unnamed, with an optional strict failure). A generated sweep ran 110
+scenes in two profiles (1280×800 light, 800×600 dark): 220 runs, about 15,000 audited controls.
+All ribbon tabs including Zotero, Help and contextual tabs, view modes, zoom 50/200/500%, panes,
+context menus, 57 dialogs and 10 File pages ran. Contact sheets were reviewed by eye: about 40
+normal-profile scenes and 33 dark compact scenes, not all 222 individually. The audit cannot see
+scroll clipping, so its offWindow and overlap lists include scrolled-list false positives,
+triaged by hand; those counts are not a defect count.
+
+A second sweep clicked each enabled control once in a fresh app (841 listed; chrome and repeats
+deduplicated) and compared before and after pixels. Unchanged controls were triaged by hand. This
+detects no visible effect only: it does not prove a control's effect is correct.
+
+CI results and the commit are recorded in `cycle-03/final-report.md` in the evidence directory.
 
 ### Cycle 02
 
@@ -358,29 +387,21 @@ cycle 02 does not mean the application meets the definition of DONE.
 
 ## Exact continuation
 
-The owner requested stopping after cycle 02. Do not start another cycle until they resume.
-This audit lands with the verified `UI-AUDIT-002` commit; its resolved SHA and gate/evidence
-hashes are recorded in `cycle-02/final-report.md` outside the checkout. First-cycle commit:
-`9785d1cb`. Nothing was pushed or deployed. The full Word parity mission remains incomplete.
+The mission remains incomplete. Nothing was pushed or deployed. Next:
 
-When resumed:
+1. Implement a real split window, or keep View › Split disabled (AUD-039).
+2. Resolve AUD-022/024 (Table Properties and Font hierarchy) and AUD-045.
+3. Extend the inert-control sweep into dropdown menu contents, galleries, Backstage and dialog
+   controls; it currently clicks only controls visible without opening anything.
+4. Add scroll clipping to the `audit` data so scrolled lists stop producing false positives.
+5. Continue pending states: long, complex and protected documents, RTL/CJK, localized sweeps,
+   hover and keyboard traversal, native accessibility and performance.
+6. Obtain direct black-box Word and native platform evidence when an environment exists. None of
+   the visual comparisons so far used live Word. Keep captures only in ignored
+   `plan/word/screenshots/`.
 
-1. Read this matrix and the final cycle-02 report, including source/binary and ignored-test limits.
-   Keep optional inputs pinned to craft-fonts `b076417b5880bd4154bd22f00695b1d28c6bea83`
-   and craft-i18n `9205108cfdced5177706264038848b68b2422d2b` under ignored `target/audit-inputs/`.
-2. Prioritize Hyperlink selected-label/current-address editing (AUD-034) and savepoint-aware
-   dirty state after undo (AUD-019). Preserve invalid-draft retention, selection and undo behavior.
-   Copy-only Hyperlink follow-up artifacts were interrupted and not applied; review them against
-   the new baseline before use.
-3. Resolve the remaining slider contrast, folded Cell Size, Font/Table Properties hierarchy,
-   invalid Font preview and stale-status findings (AUD-008/015/022/024/031/032).
-4. Continue the pending inventory and state combinations: contextual tabs, remaining dialogs
-   and menu contents, long/complex/protected documents, image/table/object selection, zoom,
-   localization, RTL/CJK, native accessibility and performance. Existing passing subsets do not
-   establish complete control behavior.
-5. Obtain direct black-box Word and native platform evidence when an environment exists.
-   Keep Word window captures only in ignored `plan/word/screenshots/`; never copy its assets,
-   proprietary code or generated files into this repository.
+Keep optional inputs pinned to craft-fonts `b076417b5880bd4154bd22f00695b1d28c6bea83` and
+craft-i18n `9205108cfdced5177706264038848b68b2422d2b` under ignored `target/audit-inputs/`.
 
 ## Revision history
 
@@ -389,3 +410,4 @@ When resumed:
 | 2026-10-29 | Initial and first-cycle review | Inventory, strict screenshot harness, responsive Read Mode/dialog repairs, input isolation, accessibility labels, Zotero race regression, wider audit and open defect backlog; all eight CI gates passed; broader mission remains open |
 | 2026-10-29 | Second-cycle integration | Integrated staged repairs; initial compile passed; added source/geometry findings AUD-026/027; runtime and visual verification pending |
 | 2026-10-29 | UI-AUDIT-002 closeout | Validation, task panes, modal ownership, responsive controls, accessibility and command filtering repaired; 36 final replay scenarios and all eight CI gates pass; remaining gaps retained; stop after cycle 02 at owner request |
+| 2026-10-30 | UI-AUDIT-003 | Hyperlink editing, savepoint-aware dirty state, Reviewing Pane, disabled no-op commands, accessible names, minor visual fixes; geometry and inert-control sweeps added; remaining gaps retained |

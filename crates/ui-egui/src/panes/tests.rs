@@ -518,3 +518,44 @@ fn selection_pane_draws_preserve_pending_undo_and_selection() {
     app.run("edit.undo", json!({})).unwrap();
     assert!(app.session.doc.same_content(&original), "one undo restores both fills after repeated pane draws");
 }
+
+/// AUD-038: the ribbon's Reviewing Pane shows tracked changes; a row selects one, Accept resolves it.
+#[test]
+fn reviewing_pane_lists_selects_and_accepts_changes() {
+    use crate::WordApp;
+    use egui::accesskit::Role;
+    use egui_kittest::kittest::Queryable;
+    use serde_json::json;
+    use wordcraft_engine::Session;
+    let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Original wording")), crate::Services::default());
+    app.run("review.trackChanges", json!({"value": true})).unwrap();
+    app.run("select.text", json!({"text": "wording"})).unwrap();
+    app.run("text.insert", json!({"text": "text"})).unwrap();
+    app.run("review.changes", json!({})).unwrap();
+    assert!(app.session.view.reviewing_pane);
+    let mut h = pane_harness(app);
+    h.run_steps(4);
+    let before = h.state_mut().session.run("review.changes", &json!({})).unwrap().as_array().unwrap().len();
+    assert_eq!(before, 2);
+    h.get_by_role_and_label(Role::Button, "WordCraft User — Inserted: text").click();
+    h.run_steps(4);
+    assert_eq!(h.state().session.selected_text(), "text");
+    h.get_by_role_and_label(Role::Button, "Accept").click();
+    h.run_steps(4);
+    assert_eq!(h.state_mut().session.run("review.changes", &json!({})).unwrap().as_array().unwrap().len(), 1);
+}
+
+/// AUD-038: Show Notes says when there are none, and otherwise moves into the first note.
+#[test]
+fn show_notes_reports_nothing_or_moves_to_a_note() {
+    use crate::WordApp;
+    use serde_json::json;
+    use wordcraft_engine::Session;
+    let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Body")), crate::Services::default());
+    app.run("references.notes", json!({})).unwrap();
+    assert!(app.status_msg.as_ref().is_some_and(|(msg, _)| msg.contains("no footnotes")));
+    app.run("references.footnote", json!({"text": "A note"})).unwrap();
+    app.session.sel = wordcraft_engine::Selection::caret(wordcraft_doc::Pos::body(0, 0));
+    app.run("references.notes", json!({})).unwrap();
+    assert!(matches!(app.session.sel.focus.story, wordcraft_doc::StoryRef::Part(_)));
+}

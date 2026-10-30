@@ -135,6 +135,9 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("view.thesaurusPane", "Thesaurus Pane Visibility", "Review › Proofing", |s, v| {
             toggle(s, v, |x| &mut x.thesaurus_pane)
         }).params(r#"{"value"?: bool}"#).pure().automation_only(),
+        CommandSpec::new("view.reviewingPane", "Reviewing Pane Visibility", "Review › Tracking", |s, v| {
+            toggle(s, v, |x| &mut x.reviewing_pane)
+        }).params(r#"{"value"?: bool}"#).pure().automation_only(),
         CommandSpec::new("view.newWindow", "New Window", "View › Window", |s, _| {
             s.push_ui_request(json!({"open": "newWindow"}));
             sel_result(s)
@@ -143,12 +146,11 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("view.switchWindows", "Switch Windows", "View › Window", switch_windows)
             .params(r#"{"id"?: n (make this open document the active one)} → {"documents": [{"id", "title", "path", "dirty", "active"}]} in the order they were opened"#)
             .pure(),
-        CommandSpec::new("view.split", "Split", "View › Window", |s, _| {
-            s.push_ui_request(json!({"toggle": "split"}));
-            sel_result(s)
-        })
-        .key("Mod+Alt+S")
-        .pure(),
+        // No front end draws a second pane yet, so this says so rather than doing nothing (AUD-039).
+        CommandSpec::new("view.split", "Split", "View › Window", |s, _| sel_result(s))
+            .when(|_| Some("splitting the window isn't available yet"))
+            .key("Mod+Alt+S")
+            .pure(),
         // The window fills the screen, OS-level full screen (#980). F11 as in browsers and most
         // desktop apps; ⌃⌘F first on macOS, where Ctrl is a key of its own (elsewhere Mod is Ctrl,
         // so "Mod+Ctrl+F" would read Ctrl+Ctrl+F). Escape also leaves it. The front end applies it.
